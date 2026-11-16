@@ -64,7 +64,7 @@ page = fill(page, '<!--ADOPTERS-->', render(firstSection(await repo('ADOPTERS.md
 const links = JSON.parse(await read('links.json'))
 const feedback = [
   links.hacker_news && `<li>On Hacker News: <a href="${links.hacker_news}">reply in the thread</a></li>`,
-  links.x && `<li>On X: <a href="${links.x}">reply to the post</a></li>`,
+  links.x && `<li>On X: <a href="${links.x}">reply to the announcement</a></li>`,
 ]
   .filter(Boolean)
   .join('\n          ')
