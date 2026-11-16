@@ -329,3 +329,8 @@ footer {
 .table-scroll table {
   min-width: 36rem;
 }
+
+/* The note under the adopters table ("Nobody yet...") is an aside, not part of the list. */
+#adopters .table-scroll + p {
+  color: var(--color-muted);
+}
