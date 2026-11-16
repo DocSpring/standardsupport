@@ -25,7 +25,8 @@ import {
   presentMessage,
   presentTicket,
 } from './store.js'
-import { errorNudge, registerSupportTools, supportInstructions } from './tools.js'
+import { answerFromDocs } from './help.js'
+import { errorNudge, getHelp, registerSupportTools, supportInstructions } from './tools.js'
 
 const PRODUCT = 'Acme Orders'
 
@@ -49,9 +50,9 @@ function buildMcpServer(store, baseUrl) {
   const server = new McpServer(
     { name: 'acme-orders', version: '0.1.0' },
     {
-      instructions: `Look up Acme orders. ${supportInstructions(PRODUCT)}`,
+      instructions: `Look up Acme orders. ${supportInstructions(PRODUCT, { help: true })}`,
       // Tells clients and directories that this server takes support tickets, and how much of the design it has.
-      capabilities: { extensions: { 'dev.standardsupport/tickets': { level: 3 } } },
+      capabilities: { extensions: { 'dev.standardsupport/tickets': { level: 3, help: true } } },
     },
   )
 
@@ -66,10 +67,16 @@ function buildMcpServer(store, baseUrl) {
     },
     async ({ order_number }) => {
       const requestId = `req_${randomBytes(8).toString('hex')}`
+      // Only order 1001 loads. 999 isn't a real number (the documentation says so); 1002 is a fault on Acme's side.
       if (order_number !== '1001') {
         return {
           isError: true,
-          content: [{ type: 'text', text: `Order ${order_number} could not be loaded. ${errorNudge(PRODUCT, requestId)}` }],
+          content: [
+            {
+              type: 'text',
+              text: `Order ${order_number} could not be loaded. ${errorNudge(PRODUCT, requestId, { help: true })}`,
+            },
+          ],
         }
       }
       return { content: [{ type: 'text', text: 'Order 1001: shipped.' }] }
@@ -82,6 +89,7 @@ function buildMcpServer(store, baseUrl) {
     account: (extra) => extra.authInfo?.extra?.account,
     // clientId is the verified OAuth client. A client's own name and version are self-reported.
     context: (extra) => ({ oauth_client_id: extra.authInfo?.clientId, server_version: '0.1.0' }),
+    help: answerFromDocs,
   })
   return server
 }
@@ -146,6 +154,15 @@ export function createApp({ store = new SupportStore(), baseUrl }) {
           return send(response, 201, { ticket: present(ticket), message: presentMessage(message) })
         }
         return send(response, 404, { error: 'Not found.' })
+      }
+
+      // Help answers from public documentation, so it needs no sign-in. Rate limit it by address in a real product.
+      if (path === '/support/help' && request.method === 'POST') {
+        const input = await readJson(request)
+        if (typeof input.question !== 'string' || input.question.length < 3 || input.question.length > 2000) {
+          throw new SupportError('invalid', 'question must be 3 to 2000 characters.')
+        }
+        return send(response, 200, await getHelp(answerFromDocs, input))
       }
 
       const account = accountFromToken(bearer(request))

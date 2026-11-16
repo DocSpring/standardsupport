@@ -34,11 +34,11 @@
       <header>
         <h1><img src="/favicon.svg" alt="" width="40" height="40" />Standard Support</h1>
         <p class="summary">
-          A convention for support tickets from AI agents. Let a customer's AI agent report a problem to your team and
-          pick up the reply, even in a later session.
+          A convention for support tickets from AI agents. Let a customer's AI agent ask for help, report a problem to
+          your team and pick up the reply, even in a later session.
         </p>
         <p class="meta">
-          A proposal. Draft 0.1, 17 November 2026. By
+          A proposal. Draft 0.2, 17 November 2026. By
           <a href="https://x.com/ndbroadbent">Nathan Broadbent</a> at
           <a href="https://docspring.com">DocSpring</a>.
         </p>
@@ -56,10 +56,19 @@
 
       <section id="example" aria-labelledby="example-h">
         <h2 id="example-h">Example</h2>
-        <p>
-          An agent's export tool returns the wrong number of pages. The agent tells the user, who agrees to report it,
-          and it does so in one call:
-        </p>
+        <p>An agent's export tool returns the wrong number of pages. It asks for help first:</p>
+        <pre><code><span class="k">support_get_help</span>({
+  "question": "export_pdf returned 2 pages for a 3-page document. Is this a known problem?",
+  "tool": "export_pdf"
+})
+
+{
+  "answered": false,
+  "answer": "The documentation doesn't answer this.",
+  "sources": [],
+  "next": "If this doesn't solve the problem, tell the user and offer to report it to the team with support_open_ticket."
+}</code></pre>
+        <p>The documentation has nothing, so the agent tells the user, who agrees to report it:</p>
         <pre><code><span class="k">support_open_ticket</span>({
   "kind": "wrong_result",
   "title": "Export returns 2 pages for a 3-page document",
@@ -148,7 +157,7 @@
         <p>
           Or copy from the
           <a href="https://github.com/DocSpring/standardsupport/tree/main/examples/reference-server">reference server</a>:
-          about 800 lines of plain JavaScript with tests, written to be read.
+          about 900 lines of plain JavaScript with tests, written to be read.
         </p>
       </section>
 
@@ -167,6 +176,14 @@
           Keep it and add to it. The first tool here is that tool, with the same kinds of fields that Sentry's,
           Clerk's and others' use, plus a request ID and a ticket the agent can come back to. If you never reply,
           stop at level 1.
+        </p>
+
+        <h3>Why a help tool as well as tickets?</h3>
+        <p>
+          Much of what looks like a bug is an agent that didn't read the documentation, and an answer on the spot
+          beats a ticket. The two are also different kinds of thing. Help answers from your own documentation, so
+          you can hand it to an agent of yours and leave it running. A ticket carries a customer's problem to your
+          team, and a person should be watching. The help tool is optional.
         </p>
 
         <h3>Why not email or a chat widget?</h3>
@@ -242,38 +259,12 @@
           <a href="https://docspring.com">DocSpring</a>. The spec is CC0; the code and
           the skill are MIT. Source on <a href="https://github.com/DocSpring/standardsupport">GitHub</a>.
         </p>
-        <p>Questions and corrections: <a href="mailto:hello@standardsupport.dev">hello@standardsupport.dev</a></p>
+        <p>
+          Questions and corrections: <a href="mailto:hello@standardsupport.dev">hello@standardsupport.dev</a>.
+          <a href="/contact/">Contact</a>
+        </p>
       </footer>
     </main>
-    <script>
-      // Theme: follows the system unless the visitor picks light or dark, which is remembered on this device.
-      ;(function () {
-        var group = document.querySelector('.theme')
-        if (!group) return
-        var root = document.documentElement
-        var buttons = group.querySelectorAll('button')
-        function show(choice) {
-          buttons.forEach(function (button) {
-            button.setAttribute('aria-pressed', String(button.dataset.themeChoice === choice))
-          })
-        }
-        function apply(choice) {
-          if (choice === 'system') delete root.dataset.theme
-          else root.dataset.theme = choice
-          try {
-            if (choice === 'system') localStorage.removeItem('theme')
-            else localStorage.setItem('theme', choice)
-          } catch (e) {}
-          show(choice)
-        }
-        buttons.forEach(function (button) {
-          button.addEventListener('click', function () {
-            apply(button.dataset.themeChoice)
-          })
-        })
-        show(root.dataset.theme || 'system')
-        group.hidden = false
-      })()
-    </script>
+    <!--THEME-SCRIPT-->
   </body>
 </html>

@@ -1,12 +1,13 @@
 # Reference server
 
-A small made-up product, "Acme Orders", with Standard Support added. About 800 lines of JavaScript with no
+A small made-up product, "Acme Orders", with Standard Support added. About 900 lines of JavaScript with no
 framework, meant to be read and copied from.
 
 | File              | What's in it                                                                              |
 | ----------------- | ----------------------------------------------------------------------------------------- |
 | `store.js`        | Tickets, messages and the rules: ownership, limits, idempotency, scrubbing, the watch data |
-| `tools.js`        | The four `support_*` MCP tools, their descriptions and schemas                            |
+| `tools.js`        | The `support_*` MCP tools, their descriptions and schemas                                 |
+| `help.js`         | A stand-in for answering a question from your documentation                               |
 | `server.js`       | `/mcp`, the same operations as REST endpoints, the watch URL, a team endpoint             |
 | `watch.sh`        | The background watcher an agent runs to hear about a reply                                |
 | `support.test.js` | Tests that use the server as an agent, a watcher and the team would                       |
@@ -26,7 +27,9 @@ the team. Everything is kept in memory.
 ## Try it
 
 Connect an MCP client to `http://localhost:8787/mcp` with the header `Authorization: Bearer demo-token-alice`, and
-ask the agent to look up order 999. The lookup fails with a request ID and a line pointing at `support_open_ticket`.
+ask the agent to look up order 999. The lookup fails with a request ID and a line pointing at `support_get_help`,
+whose answer says that order numbers start at 1000, so this one isn't a bug. Ask for order 1002 and it fails the
+same way, the documentation says that's a problem on Acme's side, and the agent offers to open a ticket.
 
 Or use the HTTP endpoints:
 

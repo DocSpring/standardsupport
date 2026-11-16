@@ -28,6 +28,7 @@ const ticketShape = {
   error: z.string().optional(),
   suggestion: z.string().optional(),
   session: z.string().optional(),
+  source: z.enum(['agent', 'user']),
   created_at: z.string(),
   updated_at: z.string(),
   unread_count: z.number().int(),
@@ -44,18 +45,44 @@ const messageSchema = z.object({
 
 // One sentence for the server's `instructions`, and one line for the end of every error your own tools return.
 // Agents rarely report unprompted, and clients that load tools lazily never show them a tool's description.
-export function supportInstructions(product) {
+// Pass { help: true } when the server has support_get_help, so agents ask before they report.
+export function supportInstructions(product, { help = false } = {}) {
+  if (help) {
+    return (
+      `When a ${product} tool fails, returns a wrong result or can't do what the user asked, ask ` +
+      "support_get_help first. If that doesn't solve it, tell the user and offer to report it to the team with " +
+      'support_open_ticket.'
+    )
+  }
   return (
     `When a ${product} tool fails, returns a wrong result or can't do what the user asked, tell the user and ` +
     'offer to report it to the team with support_open_ticket.'
   )
 }
 
-export function errorNudge(product, requestId) {
+export function errorNudge(product, requestId, { help = false } = {}) {
+  if (help) {
+    return (
+      `Request ID: ${requestId}. For help with this error, call support_get_help. If it looks like a ${product} ` +
+      'bug or it still blocks the task, offer to report it with support_open_ticket and include this request ID.'
+    )
+  }
   return (
     `Request ID: ${requestId}. If this looks like a ${product} bug or it blocks the task, offer to report it with ` +
     'support_open_ticket and include this request ID.'
   )
+}
+
+const HELP_NEXT =
+  "If this doesn't solve the problem, tell the user and offer to report it to the team with support_open_ticket."
+const HELP_NO_ANSWER = "The documentation doesn't answer this."
+
+// The answer to a question, shaped the same for the MCP tool and the HTTP endpoint.
+export async function getHelp(help, input) {
+  const found = await help(input)
+  return found
+    ? { answered: true, answer: found.answer, sources: found.sources ?? [], next: HELP_NEXT }
+    : { answered: false, answer: HELP_NO_ANSWER, sources: [], next: HELP_NEXT }
 }
 
 // options.product: the product's name, as agents and users know it.
@@ -63,8 +90,38 @@ export function errorNudge(product, requestId) {
 // options.account(extra): the signed-in account, { id, email }, from the MCP request. Return undefined if nobody is
 //   signed in.
 // options.context(extra): what the server knows about the caller (client name and version, OAuth client ID).
+// options.help({ question, tool, error }): optional. Answers a question from your documentation and known issues,
+//   returning { answer, sources } or undefined. With it, the server also gets support_get_help.
 export function registerSupportTools(server, store, options) {
   const { product, baseUrl } = options
+
+  if (options.help) {
+    server.registerTool(
+      'support_get_help',
+      {
+        title: `Get help with ${product}`,
+        description:
+          `Ask a question about ${product} and get an answer from its documentation and known issues: how to do ` +
+          'something, what an error means, whether a problem is already known. Call this first when a tool fails ' +
+          'or you are not sure how to do what the user asked. It opens no ticket, so you do not need to ask the ' +
+          "user first. Never include secrets, credentials or the user's data. If the answer doesn't solve the " +
+          'problem, tell the user and offer to report it to the team with support_open_ticket.',
+        inputSchema: {
+          question: z.string().min(3).max(2000).describe('What you want to know, in a sentence or two.'),
+          tool: z.string().max(100).optional().describe('The tool involved, if any.'),
+          error: z.string().max(4000).optional().describe('The exact error text, if any.'),
+        },
+        outputSchema: {
+          answered: z.boolean(),
+          answer: z.string(),
+          sources: z.array(z.object({ title: z.string(), url: z.string() })),
+          next: z.string(),
+        },
+        annotations: { readOnlyHint: true, openWorldHint: false },
+      },
+      async (input) => success(await getHelp(options.help, input)),
+    )
+  }
 
   const run = (handler) => async (input, extra) => {
     const account = options.account(extra)
@@ -86,9 +143,11 @@ export function registerSupportTools(server, store, options) {
       description:
         `Report a problem with ${product} to the ${product} team: a bug, a crash, a wrong result, a confusing ` +
         'tool or error, a missing feature, wrong documentation, or a question. A person on the team reads every ' +
-        'ticket, so report problems that blocked the task or cost real time, not every rough edge. Before calling ' +
-        'this, tell the user what happened, show them every piece of text you would send, and get their ' +
-        `yes. Only for ${product} itself, not for other tools or services. One ticket per distinct problem. Never ` +
+        'ticket, so report problems that blocked the task or cost real time, not every rough edge. If the user ' +
+        'asked you to send this ("report that", "send that as feedback"), set source to user: they have already ' +
+        'agreed. Otherwise, before calling this, tell the user what happened, show them every piece of text you ' +
+        `would send, and get their yes. Only for ${product} itself, not for other tools or services. One ticket ` +
+        'per distinct problem. Never ' +
         "include secrets, credentials or the user's data. The team replies on the ticket: read replies with " +
         'support_get_ticket. If this call fails, carry on with the task and do not retry. Afterwards, tell the ' +
         'user how the reply will arrive.',
@@ -109,7 +168,10 @@ export function registerSupportTools(server, store, options) {
         tool: z.string().max(100).optional().describe('The tool involved.'),
         error: z.string().max(4000).optional().describe('The exact error text.'),
         suggestion: z.string().max(2000).optional().describe('What would have helped.'),
-        source: z.enum(['agent', 'user']).optional().describe('Who decided to send this. Default: agent.'),
+        source: z
+          .enum(['agent', 'user'])
+          .optional()
+          .describe('user: the user asked you to send this. agent (default): you noticed the problem yourself.'),
         session: z
           .string()
           .max(100)

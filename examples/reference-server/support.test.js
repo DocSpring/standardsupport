@@ -51,17 +51,56 @@ async function team(path, body) {
 test('the server says how to report, in its instructions and in every error', async () => {
   const alice = await connect('demo-token-alice')
   assert.match(alice.getInstructions(), /support_open_ticket/)
-  assert.deepEqual(alice.getServerCapabilities().extensions, { 'dev.standardsupport/tickets': { level: 3 } })
+  assert.deepEqual(alice.getServerCapabilities().extensions, {
+    'dev.standardsupport/tickets': { level: 3, help: true },
+  })
 
   const { tools } = await alice.listTools()
   assert.deepEqual(
     tools.map((tool) => tool.name).filter((name) => name.startsWith('support_')),
-    ['support_open_ticket', 'support_list_tickets', 'support_get_ticket', 'support_reply_to_ticket'],
+    ['support_get_help', 'support_open_ticket', 'support_list_tickets', 'support_get_ticket', 'support_reply_to_ticket'],
   )
 
   const failed = await alice.callTool({ name: 'lookup_order', arguments: { order_number: '999' } })
   assert.equal(failed.isError, true)
-  assert.match(failed.content[0].text, /Request ID: req_[0-9a-f]+\..*support_open_ticket/)
+  assert.match(failed.content[0].text, /Request ID: req_[0-9a-f]+\..*support_get_help.*support_open_ticket/)
+})
+
+test('an agent asks for help first, and the answer saves a ticket when the documentation covers it', async () => {
+  const alice = await connect('demo-token-alice')
+
+  // Order 999 "could not be loaded". The documentation says numbers start at 1000, so this isn't a bug.
+  const helped = await call(alice, 'support_get_help', {
+    question: 'lookup_order says an order could not be loaded. What does that mean?',
+    tool: 'lookup_order',
+  })
+  assert.equal(helped.answered, true)
+  assert.match(helped.answer, /start at 1000/)
+  assert.equal(helped.sources[0].title, 'Order numbers')
+  assert.match(helped.next, /support_open_ticket/)
+
+  const unknown = await call(alice, 'support_get_help', { question: 'Can I export invoices as a spreadsheet?' })
+  assert.equal(unknown.answered, false)
+  assert.match(unknown.next, /support_open_ticket/)
+
+  // Asking opens nothing.
+  assert.equal((await call(alice, 'support_list_tickets', { status: 'all', session: 'help-test' })).tickets.length, 0)
+
+  // The same over HTTP, with no sign-in: it is public documentation.
+  const overHttp = await fetch(`${baseUrl}/support/help`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ question: 'What does a 429 mean?' }),
+  })
+  assert.equal(overHttp.status, 200)
+  assert.equal((await overHttp.json()).sources[0].title, 'Rate limits')
+})
+
+test('a ticket records whether the user asked for it or the agent noticed the problem', async () => {
+  const alice = await connect('demo-token-alice')
+  const base = { kind: 'bug', title: 'Title', description: 'Text.', session: 'source-test' }
+  assert.equal((await call(alice, 'support_open_ticket', base)).ticket.source, 'agent')
+  assert.equal((await call(alice, 'support_open_ticket', { ...base, source: 'user' })).ticket.source, 'user')
 })
 
 test('an agent opens a ticket, a watcher sees the reply arrive, and the agent reads and answers it', async () => {

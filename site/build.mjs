@@ -50,8 +50,12 @@ const spec = await repo('spec/README.md')
 // The page has its own title, so the spec's first heading goes and the rest sit one level down.
 const specBody = spec.split('\n').slice(1).join('\n')
 
-let page = await read('index.html')
-page = fill(page, '<!--HEAD-->', await read('_head.html'))
+const head = await read('_head.html')
+const themeScript = await read('_theme.html')
+// The parts every page shares.
+const shell = (html) => fill(fill(html, '<!--HEAD-->', head), '<!--THEME-SCRIPT-->', themeScript)
+
+let page = shell(await read('index.html'))
 page = fill(page, '<!--SPEC-->', render(specBody, { shift: 1 }))
 page = fill(page, '<!--ADOPTERS-->', render(firstSection(await repo('ADOPTERS.md')), { shift: 1 }))
 
@@ -65,6 +69,20 @@ const feedback = [
   .filter(Boolean)
   .join('\n          ')
 page = fill(page, '<!--FEEDBACK-->', feedback)
+
+// /contact, for people who look for one, with the same ways to reach us. The other spellings people try go there too.
+const contact = fill(shell(await read('contact.html')), '<!--FEEDBACK-->', feedback)
+await mkdir(new URL('contact/', dist), { recursive: true })
+await writeFile(new URL('contact/index.html', dist), contact)
+for (const spelling of ['contact-us', 'contact_us', 'contactus']) {
+  await mkdir(new URL(`${spelling}/`, dist), { recursive: true })
+  await writeFile(
+    new URL(`${spelling}/index.html`, dist),
+    '<!doctype html><meta charset="utf-8"><title>Contact: Standard Support</title>' +
+      '<link rel="canonical" href="https://standardsupport.dev/contact/">' +
+      '<meta http-equiv="refresh" content="0; url=/contact/"><a href="/contact/">Contact</a>\n',
+  )
+}
 
 await writeFile(new URL('index.html', dist), page)
 
@@ -88,7 +106,7 @@ const pageMarkdown = turndown
   .replace(/\]\(#/g, '](https://standardsupport.dev/#')
 await writeFile(new URL('index.md', dist), `${pageMarkdown}\n`)
 await writeFile(new URL('spec.md', dist), spec)
-await writeFile(new URL('404.html', dist), fill(await read('404.html'), '<!--HEAD-->', await read('_head.html')))
+await writeFile(new URL('404.html', dist), shell(await read('404.html')))
 for (const file of ['styles.css', 'favicon.svg', 'og.png', 'llms.txt', 'CNAME']) await cp(new URL(file, src), new URL(file, dist))
 await cp(new URL('fonts/', src), new URL('fonts/', dist), { recursive: true })
 

@@ -1,13 +1,13 @@
 ---
 name: standard-support
-description: Adds Standard Support to an existing MCP server or API, so that customers' AI agents can report bugs, wrong results and feedback to the product's team in one call, read the team's replies and answer them. Covers the four support_* tools and their schemas, the same operations as REST endpoints, the watch URL a background script polls for replies, ticket ownership, rate limits, and the rules that stop injected text from steering either side. Use when the user wants agents to be able to report problems or give feedback through their MCP server or API, asks for a feedback, bug report or support ticket tool for agents, mentions Standard Support or standardsupport.dev, or already has a one-way feedback tool (submit_feedback, give_feedback, report_issue) and wants replies. Not for adding a human chat widget, and not for filing a ticket with some other product's support.
+description: Adds Standard Support to an existing MCP server or API, so that customers' AI agents can report bugs, wrong results and feedback to the product's team in one call, read the team's replies and answer them. Covers the four support_* ticket tools and their schemas, the optional support_get_help tool that answers from the product's documentation, the same operations as REST endpoints, the watch URL a background script polls for replies, ticket ownership, rate limits, and the rules that stop injected text from steering either side. Use when the user wants agents to be able to report problems or give feedback through their MCP server or API, asks for a feedback, bug report or support ticket tool for agents, mentions Standard Support or standardsupport.dev, or already has a one-way feedback tool (submit_feedback, give_feedback, report_issue) and wants replies. Not for adding a human chat widget, and not for filing a ticket with some other product's support.
 license: MIT
 ---
 
 # Standard Support
 
-Standard Support is a ready-made design for support tickets from AI agents: four tools, one status URL, and the
-decisions around them. A customer's agent reports a problem to the product's team and picks up the reply, even in
+Standard Support is a ready-made design for support tickets from AI agents: four ticket tools, an optional help
+tool, one status URL, and the decisions around them. A customer's agent reports a problem to the product's team and picks up the reply, even in
 a later session. Your job is to build it into the user's product, in their language and their stack, using
 what their codebase already has.
 
@@ -36,13 +36,17 @@ Look before you ask. From the codebase, work out:
 - **An existing feedback tool**: if there is one, this replaces it. Keep its name working as an alias if customers'
   agents may have learned it.
 - **A REST API**: if agents use it, the same four operations go there too.
+- **Documentation the product can search**: a docs site with search, a docs MCP server, a help centre. This decides
+  whether `support_get_help` is worth offering.
 
 Then ask the user only what the code can't tell you, in one message:
 
 1. How far to go: level 1 (reports only), level 2 (replies) or level 3 (the watch URL too). Recommend 3 if there is
    sign-in.
 2. Where new tickets should be announced, and where the team will reply from.
-3. Whether the tool should tell agents to get the user's yes first and to report only what blocked the task or
+3. Whether to offer `support_get_help`, and what answers it. Recommend it when the product has searchable
+   documentation: it answers the questions that aren't bugs and keeps them out of the ticket queue.
+4. Whether the tool should tell agents to get the user's yes first and to report only what blocked the task or
    cost real time (the default), or should invite every report, small ones included. Recommend the default unless
    they want every report and have someone to read them. Either way the customer has the last word: their client
    decides whether a write needs confirming.
@@ -62,7 +66,7 @@ Work in this order. Each step is usable by itself.
 3. **Announce it.** Send the new ticket to where the team works. This is what makes the tool worth having.
 4. **The nudge.** Add the one-sentence instruction to the server's `instructions`, and end every error result of
    the product's own tools with its request ID and the line that points at `support_open_ticket`. Without this,
-   agents rarely report.
+   agents rarely report. If you build `support_get_help`, use the variants that send the agent there first.
 5. **`support_list_tickets`, `support_get_ticket`, `support_reply_to_ticket`.** Every one checks that the ticket
    belongs to the caller's account, and answers a missing ticket and someone else's ticket identically. The list
    filters by `status` (`open`, `closed`, `all`) and `session`, and its default includes any ticket with an unread
@@ -73,8 +77,13 @@ Work in this order. Each step is usable by itself.
 7. **The watch URL.** `GET` with the watch token in the path and no other sign-in. It returns `updated_at`,
    `status`, `unread_count`, `min_interval_seconds` and `long_poll`, and nothing else. Support `ETag`.
 8. **REST endpoints**, if the product has an API that agents use.
-9. **Say so.** Advertise `dev.standardsupport/tickets` under `capabilities.extensions` with the level reached.
-10. **Tests** for each rule in the checklist below.
+9. **`support_get_help`**, if the user wants it. It takes a question and returns an answer with its sources from
+   the product's documentation and known issues, or says it has none, and always ends by pointing at
+   `support_open_ticket`. Read-only, no ticket, no sign-in needed. Whatever answers must see only the question and
+   public documentation.
+10. **Say so.** Advertise `dev.standardsupport/tickets` under `capabilities.extensions` with the level reached, and
+    `help: true` if you built the help tool.
+11. **Tests** for each rule in the checklist below.
 
 ## 3. Rules you must not skip
 
@@ -83,8 +92,12 @@ These are where an implementation goes wrong in ways that hurt people.
 - **Keep a person in the loop.** Agents may end up on both sides of a ticket: the customer's filing it, the team's
   answering it. Build it so a person on the team always at least sees what comes in and what goes out (the
   announcement in step 3 is part of this), and tell the user so if they plan to let agents answer tickets unattended.
-- **The user confirms first.** Use the default descriptions, which tell the agent to show the user everything it
-  would send and get their yes before opening a ticket or replying. Mark both writing tools as writes so the
+- **Help can run unattended; tickets can't.** `support_get_help` may be answered by a search or by an agent of
+  the vendor's, but it must only read documentation and known issues: no account lookups, no credentials, no other
+  tools, and it never opens a ticket itself. That limit is what makes it safe to leave running.
+- **The user confirms first, unless they asked.** Use the default descriptions, which tell the agent to show the
+  user everything it would send and get their yes before opening a ticket or replying, and to set `source: user`
+  and skip the question when the user asked for the report themselves. Mark both writing tools as writes so the
   customer's client can ask too. A vendor may invite more reports in the description, but can't grant permission on
   the customer's behalf.
 - **Never let one account see another's ticket**, including through the list, a reply or an error message that
@@ -128,9 +141,12 @@ These are where an implementation goes wrong in ways that hurt people.
 - [ ] `support_open_ticket` and `support_reply_to_ticket` are marked as writes; the list and get tools as read-only.
 - [ ] The descriptions tell the agent to show the user what it would send and get their yes.
 - [ ] The server advertises `dev.standardsupport/tickets` with its level.
+- [ ] A ticket records `source` (`agent` by default, `user` when the user asked for it) and returns it.
+- [ ] If built: `support_get_help` answers from documentation with sources, says when it has no answer, always
+      points at `support_open_ticket`, opens no ticket, and can reach nothing but documentation.
 - [ ] The team was told about the new ticket where they work.
 - [ ] Tool names are exactly `support_open_ticket`, `support_list_tickets`, `support_get_ticket` and
-      `support_reply_to_ticket`.
+      `support_reply_to_ticket`, plus `support_get_help` if built.
 
 When you finish, tell the user what you built, which level it reaches, anything you changed from the design and
 why, and what they still need to do themselves (for example, deciding who answers tickets).

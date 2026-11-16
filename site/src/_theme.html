@@ -1,0 +1,30 @@
+    <script>
+      // Theme: follows the system unless the visitor picks light or dark, which is remembered on this device.
+      ;(function () {
+        var group = document.querySelector('.theme')
+        if (!group) return
+        var root = document.documentElement
+        var buttons = group.querySelectorAll('button')
+        function show(choice) {
+          buttons.forEach(function (button) {
+            button.setAttribute('aria-pressed', String(button.dataset.themeChoice === choice))
+          })
+        }
+        function apply(choice) {
+          if (choice === 'system') delete root.dataset.theme
+          else root.dataset.theme = choice
+          try {
+            if (choice === 'system') localStorage.removeItem('theme')
+            else localStorage.setItem('theme', choice)
+          } catch (e) {}
+          show(choice)
+        }
+        buttons.forEach(function (button) {
+          button.addEventListener('click', function () {
+            apply(button.dataset.themeChoice)
+          })
+        })
+        show(root.dataset.theme || 'system')
+        group.hidden = false
+      })()
+    </script>

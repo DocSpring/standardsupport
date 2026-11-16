@@ -243,6 +243,7 @@ export function presentTicket(ticket, { baseUrl }) {
     error: ticket.error,
     suggestion: ticket.suggestion,
     session: ticket.session,
+    source: ticket.source,
     created_at: ticket.created_at,
     updated_at: ticket.updated_at,
     unread_count: unreadCount(ticket),

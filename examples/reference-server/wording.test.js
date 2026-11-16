@@ -24,14 +24,17 @@ test("the skill's descriptions.md has the same wording as the tools this server 
     product: 'Acme',
     baseUrl: 'https://example.com',
     account: () => undefined,
+    help: async () => undefined,
   })
 
   const inCode = {
     'the server instructions': supportInstructions('Acme'),
+    'the server instructions with help': supportInstructions('Acme', { help: true }),
     'the error line': errorNudge('Acme', '{request_id}'),
+    'the error line with help': errorNudge('Acme', '{request_id}', { help: true }),
     ...Object.fromEntries(Object.entries(registered).map(([name, config]) => [name, config.description])),
   }
-  assert.equal(Object.keys(registered).length, 4)
+  assert.equal(Object.keys(registered).length, 5)
   for (const [name, text] of Object.entries(inCode)) {
     assert.ok(quoted.includes(asWritten(text)), `descriptions.md is out of date for ${name}: ${asWritten(text)}`)
   }

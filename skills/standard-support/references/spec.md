@@ -1,21 +1,29 @@
-# Standard Support (draft 0.1)
+# Standard Support (draft 0.2)
 
-Four tools and one status URL that a product can expose so a customer's AI agent can report a problem to the
-product's team, see its tickets, read the team's replies and answer them.
+A few tools and one status URL that a product can expose so a customer's AI agent can get help, report a problem to
+the product's team, see its tickets, read the team's replies and answer them.
 
-| What                         | What it does                                           | Level |
-| ---------------------------- | ------------------------------------------------------ | ----- |
-| `support_open_ticket`        | Report a bug, wrong result, question or feedback       | 1     |
-| `support_list_tickets`       | List this account's tickets                            | 2     |
-| `support_get_ticket`         | Read one ticket and its messages                       | 2     |
-| `support_reply_to_ticket`    | Add a message; say whether it's fixed or still broken  | 2     |
-| a `watch_url` on each ticket | A status URL a background script can poll for changes  | 3     |
+| What                         | What it does                                           | Level    |
+| ---------------------------- | ------------------------------------------------------ | -------- |
+| `support_get_help`           | Ask a question, answered from your docs. No ticket     | optional |
+| `support_open_ticket`        | Report a bug, wrong result, question or feedback       | 1        |
+| `support_list_tickets`       | List this account's tickets                            | 2        |
+| `support_get_ticket`         | Read one ticket and its messages                       | 2        |
+| `support_reply_to_ticket`    | Add a message; say whether it's fixed or still broken  | 2        |
+| a `watch_url` on each ticket | A status URL a background script can poll for changes  | 3        |
 
 You can stop at any level. Level 1 alone is the one-way feedback tool that many MCP servers gained during 2026
 under different names (`submit_feedback`, `give_feedback`, `send_feedback`, `report_issue`).
 
 It is written with developer tools in mind, where an AI coding agent builds an integration with a product, but
 it works for any product with an MCP server or an API and any AI tool that uses one.
+
+There are two halves, and they are kept apart on purpose:
+
+- **Help** is a question answered from your own documentation. Nothing private goes in and no person is involved,
+  so it is safe to automate end to end.
+- **Tickets** carry a customer's problem to your team. A person agreed to send each one, and a person on your side
+  should at least be watching what happens to it.
 
 This is a design to copy, not a protocol to conform to. Each decision below comes with its reason, so you can
 disagree with one and keep the rest.
@@ -35,6 +43,24 @@ disagree with one and keep the rest.
 Results are structured (`structuredContent` with an `outputSchema`) and repeated as text for clients that only read
 text. Timestamps are ISO 8601 with an offset. Readers ignore fields they don't know, so the schemas can grow.
 
+### `support_get_help` (optional)
+
+Takes `question` (3-2000), and optionally the `tool` involved and the exact `error` text. Returns `answered`
+(whether your documentation had anything), `answer`, `sources[]` (`{title, url}`) and `next`, a fixed line telling
+the agent to offer a ticket if the answer didn't solve the problem.
+
+- **It is the first stop.** Much of what looks like a bug is an agent that didn't read the documentation. An answer
+  on the spot is better for everyone than a ticket, and "let your agent ask for help" is an easier thing to say yes
+  to than "let your agent open tickets".
+- **It opens no ticket and reaches no person**, so the agent doesn't ask the user first, and the tool is marked
+  read-only. You can log the questions: they show you what your documentation is missing.
+- **It answers from documentation and known issues only.** Whatever produces the answer, a search or an agent of
+  yours, sees the question and public documentation and nothing else: no account data, no credentials, no tools.
+  That is what makes it safe to leave unattended (see Safety rules).
+- **It needs no sign-in**, since it reveals nothing private. Rate limit it.
+- **When you have it, point at it.** The server instructions and the line on each error send the agent here before
+  they mention a ticket.
+
 ### `support_open_ticket`
 
 | Field             | Type           | Required | Notes                                                                                       |
@@ -49,7 +75,7 @@ text. Timestamps are ISO 8601 with an offset. Readers ignore fields they don't k
 | `error`           | string, ≤4000  | no       | The exact error text                                                                        |
 | `suggestion`      | string, ≤2000  | no       | What would have helped                                                                      |
 | `category`        | string, ≤50    | no       | Your own sub-kinds, listed as an enum in your schema                                        |
-| `source`          | enum           | no       | `agent` (default) or `user`: who decided to send this                                       |
+| `source`          | enum           | no       | `user`: the user asked for this to be sent. `agent` (default): the agent noticed it itself  |
 | `session`         | string, ≤100   | no       | A label the agent chooses for its work: a session ID, a branch, a task name                 |
 | `agent`           | object         | no       | `{name, version, model}`, self-reported, stored as unverified                               |
 | `idempotency_key` | string, ≤64    | no       | A retry with the same key returns the first ticket                                          |
@@ -65,6 +91,11 @@ Why these fields:
   problem or was only slowed down. It can't judge "high" or "low".
 - **`request_ids`** let you find the failing request in your logs. Return an ID with every error and the agent will
   pass it back.
+- **`source`** because the two cases are different. When a person says "send that as feedback", they have
+  delegated it: no further confirmation is needed, and they will want an answer. When an agent notices a problem
+  itself, it is closer to a crash report: the agent asks first (or you invite such reports freely), and it may
+  need no reply. Route the two differently if you like, so that an invitation to report freely doesn't bury the
+  tickets people are waiting on.
 - **`idempotency_key`** because agents retry.
 - **`session`** because one customer may have a dozen agents working at once, and agents have no stable identity
   to give. A label they choose is enough to sort by.
@@ -96,7 +127,7 @@ reopen a fixed ticket.
 ### Ticket and message
 
 Ticket: `id` (string, ≤64), `kind`, `category`, `title`, `status`, `resolution`, `impact`, `task`, `request_ids`,
-`tool`, `error`, `suggestion`, `session`, `created_at`, `updated_at`, `unread_count` (the team's messages that nobody on the account has read yet),
+`tool`, `error`, `suggestion`, `session`, `source`, `created_at`, `updated_at`, `unread_count` (the team's messages that nobody on the account has read yet),
 `watch_url` (level 3), `url` (an optional page a person can open).
 
 - `status`: `open` (with the team), `needs_reply` (the team asked something), `resolved`, `closed`.
@@ -169,7 +200,8 @@ Neither is in this version.
 Agents rarely report unprompted, and clients that load tools lazily never show them the description.
 
 - **Server instructions** carry one sentence: when a tool of this product fails, returns a wrong result or can't do
-  what the user asked, tell the user and offer to report it with `support_open_ticket`.
+  what the user asked, tell the user and offer to report it with `support_open_ticket`. With `support_get_help`,
+  the sentence sends the agent there first.
 - **Every error result** ends with its request ID and a line saying the same.
 - **The description** says: one ticket per distinct problem; only for this product; no secrets, credentials or the
   user's data; if the call fails, carry on with the task and don't retry.
@@ -180,8 +212,10 @@ A ticket lands in front of a person on your team, so a person on the other side 
 Without that, agents might follow the instructions too literally and report every small annoyance, and the inbox
 fills with noise.
 
-- **The agent asks before it opens a ticket.** It tells the user what happened, shows every piece of text it would
-  send (the title and description, and the error, task and suggestion if it filled them in), and waits for a yes. The description of `support_open_ticket` says so, and says to report problems
+- **The agent asks before it opens a ticket**, unless the user asked for it. When the agent noticed the problem
+  itself, it tells the user what happened, shows every piece of text it would send (the title and description, and
+  the error, task and suggestion if it filled them in), and waits for a yes. When the user said "report that", they
+  have already agreed, and the agent sends it with `source: user`. The description of `support_open_ticket` says so, and says to report problems
   that blocked the task or cost real time, not every rough edge.
 - **The same for a reply.** The agent shows the user the message before it calls `support_reply_to_ticket`.
 - **The two writing tools are marked as writes** (`readOnlyHint: false`), so clients that ask before a write will
@@ -198,8 +232,11 @@ fills with noise.
 
 Both directions carry text written by a party the reader shouldn't obey.
 
-- **Keep a person in the loop.** Be very, very careful with a system that autonomous agents may use on both sides
-  of a ticket: one filing reports, another triaging and replying. Two agents can talk each other into a loop, or
+- **Help can run unattended; tickets can't.** `support_get_help` is the part you can hand to an agent of yours
+  and walk away from, because it can only read your documentation. Keep it that way: don't let it look up accounts,
+  open tickets or call anything.
+- **Keep a person in the loop on tickets.** Be very, very careful with a system that autonomous agents may use on
+  both sides of a ticket: one filing reports, another triaging and replying. Two agents can talk each other into a loop, or
   into actions nobody asked for, faster than anyone notices. Make sure there is always a person who is at least
   watching what goes in and what comes out, on your side and on the customer's.
 - **Reports are untrusted input to your side.** Store and show them as data. An agent of yours that reads tickets
@@ -222,6 +259,7 @@ and version your API uses:
 - `GET /support/tickets`
 - `GET /support/tickets/{id}`
 - `POST /support/tickets/{id}/replies`
+- `POST /support/help`, if you offer help. It needs no sign-in.
 
 The `watch_url` is the same URL either way. Point agents at the endpoints from your API docs, your `llms.txt` and
 your error responses.
@@ -232,7 +270,7 @@ Advertise the MCP extension `dev.standardsupport/tickets` in your server's capab
 implement:
 
 ```json
-{ "capabilities": { "tools": {}, "extensions": { "dev.standardsupport/tickets": { "level": 2 } } } }
+{ "capabilities": { "tools": {}, "extensions": { "dev.standardsupport/tickets": { "level": 2, "help": true } } } }
 ```
 
 The tool names are enough for agents. The identifier is for clients and directories that want to show "this server
@@ -242,5 +280,14 @@ takes support tickets". What each level promises:
 - **Level 2:** the other three tools exist too, and a ticket opened by an account can be listed, read and replied
   to by that account.
 - **Level 3:** every ticket also has a `watch_url` that answers as described above.
+- **`help: true`:** `support_get_help` exists, at any level.
 
 You are free to add fields and kinds at any level. Clients ignore what they don't know.
+
+## Changes
+
+- **0.2, 17 November 2026.** Added `support_get_help`, an optional tool that answers a question from your
+  documentation without opening a ticket. `source` now has consequences: a ticket the user asked for needs no
+  further confirmation, and one the agent noticed itself does. `source` is returned on the ticket. Both came from
+  [a comment on Hacker News](https://news.ycombinator.com/item?id=50525068).
+- **0.1, 17 November 2026.** The first draft.

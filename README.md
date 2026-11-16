@@ -1,7 +1,7 @@
 # Standard Support
 
-A convention for support tickets from AI agents. Let a customer's AI agent report a problem to your team and pick up
-the reply, even in a later session.
+A convention for support tickets from AI agents. Let a customer's AI agent ask for help, report a problem to your
+team and pick up the reply, even in a later session.
 
 **Read it at [standardsupport.dev](https://standardsupport.dev).** The whole thing is on one page: an example, why,
 the spec, questions and adopters.
@@ -13,12 +13,13 @@ usually has no inbox, who owns a ticket, and how to keep injected text from stee
 
 It comes down to four tools on your MCP server (`support_open_ticket`, `support_list_tickets`, `support_get_ticket`
 and `support_reply_to_ticket`), the same operations over HTTP, and a status URL on each ticket that a background
-script can poll. You can stop after the first tool.
+script can poll. You can stop after the first tool. An optional fifth, `support_get_help`, answers a question from
+your documentation without opening a ticket.
 
 Nothing breaks if you implement this differently. Agents read each tool's description, so this doesn't need
 everyone to agree. You can adopt what works for your product and extend it however you like.
 
-**Status: a draft, published early for feedback.** Names and fields may still change. Nobody has shipped it yet;
+**Status: draft 0.2, published early for feedback.** Names and fields may still change. Nobody has shipped it yet;
 DocSpring's implementation is being built.
 
 ## What's here

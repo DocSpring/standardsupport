@@ -1,8 +1,10 @@
 # Standard Support
 
-> A ready-made design for support tickets from AI agents: four MCP tools (support_open_ticket, support_list_tickets,
-> support_get_ticket, support_reply_to_ticket) and a watch URL per ticket, so a customer's agent can report a problem
-> to a product's team, read the reply and answer it. A design to copy, not a protocol to conform to. Made by DocSpring.
+> A convention for support tickets from AI agents (draft 0.2). Four MCP tools (support_open_ticket,
+> support_list_tickets, support_get_ticket, support_reply_to_ticket), an optional support_get_help that answers from
+> the product's documentation, and a watch URL per ticket, so a customer's agent can ask for help, report a problem
+> to a product's team, read the reply and answer it. A design to copy, not a protocol to conform to. Made by
+> DocSpring.
 
 - [The whole site as Markdown](https://standardsupport.dev/index.md): the example, why, the spec, questions and adopters
 - [The spec](https://standardsupport.dev/spec.md): every tool, field, status and rule, with its reason
