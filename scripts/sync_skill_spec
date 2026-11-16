@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# The skill has to work when it's installed by itself, so it carries a copy of the spec. Run this after changing
+# spec/README.md. With --check it fails if the copy is out of date.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+source="spec/README.md"
+copy="skills/standard-support/references/spec.md"
+
+if [[ "${1:-}" == "--check" ]]; then
+  diff -u "$source" "$copy" || { echo "$copy is out of date: run scripts/sync_skill_spec" >&2; exit 1; }
+else
+  cp "$source" "$copy"
+fi

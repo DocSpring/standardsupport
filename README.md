@@ -1,0 +1,62 @@
+# Standard Support
+
+A convention for support tickets from AI agents. Let a customer's AI agent report a problem to your team and pick up
+the reply, even in a later session.
+
+**Read it at [standardsupport.dev](https://standardsupport.dev).** The whole thing is on one page: an example, why,
+the spec, questions and adopters.
+
+When a customer's agent uses your product through its MCP server or API and hits a bug, a wrong result or a tool
+that can't do what was asked, it works around the problem or gives up. Standard Support is a written-down set of
+decisions for fixing that: what to call the tools, which fields to ask for, how a reply reaches an agent that
+usually has no inbox, who owns a ticket, and how to keep injected text from steering either side.
+
+It comes down to four tools on your MCP server (`support_open_ticket`, `support_list_tickets`, `support_get_ticket`
+and `support_reply_to_ticket`), the same operations over HTTP, and a status URL on each ticket that a background
+script can poll. You can stop after the first tool.
+
+Nothing breaks if you implement this differently. Agents read each tool's description, so this doesn't need
+everyone to agree. You can adopt what works for your product and extend it however you like.
+
+**Status: a draft, published early for feedback.** Names and fields may still change. Nobody has shipped it yet;
+DocSpring's implementation is being built.
+
+## What's here
+
+| Path                         | Contents                                                         | Licence |
+| ---------------------------- | ---------------------------------------------------------------- | ------- |
+| `spec/`                      | The design: tools, fields, the watch URL, safety rules, and why  | CC0     |
+| `skills/standard-support/`   | An agent skill that builds Standard Support into your MCP server | MIT     |
+| `examples/reference-server/` | A small working server in JavaScript, with tests                 | MIT     |
+| `site/`                      | The source of standardsupport.dev: one page, built from the spec | MIT     |
+| `ADOPTERS.md`                | Products that have shipped it; add yours by pull request         |         |
+
+## Add it to your product
+
+Point your coding agent at the skill (`skills/standard-support/`) and ask it to add Standard Support to your MCP
+server. It reads your codebase, asks what it can't work out, and builds the tools, the storage, the watch URL and the
+tests in your own stack.
+
+Or read the [spec](spec/README.md) and the [reference server](examples/reference-server/) and build it yourself.
+
+## Feedback
+
+This is a draft, and we want to know what is wrong with it, what is missing and what you would do differently. Open
+an issue here, or write to hello@standardsupport.dev.
+
+## Working on this repo
+
+- **The spec** is `spec/README.md`. The skill carries a copy so that it works when installed by itself: after
+  changing the spec, run `scripts/sync_skill_spec`.
+- **The wording agents see** (tool descriptions, the server instruction, the error line) lives in
+  `examples/reference-server/tools.js` and `skills/standard-support/references/descriptions.md`. Change both
+  together: a test fails when they differ.
+- **The reference server**: `cd examples/reference-server && npm install && npm test`.
+- **The site**: `cd site && npm install && npm run build` writes `site/dist/`, and `npm run serve` shows it at
+  http://127.0.0.1:4321/. It renders `spec/README.md` and `ADOPTERS.md` into the page, so neither is copied by hand,
+  and writes the whole page as Markdown too (`/index.md`). The Hacker News and X links in the Feedback section come
+  from `site/src/links.json`. The fonts in `site/src/fonts/` are under the SIL Open Font License.
+- **Publishing**: every push to `main` runs the checks and publishes the site to standardsupport.dev through GitHub
+  Pages (`.github/workflows/site.yml`).
+
+Made by [DocSpring](https://docspring.com).

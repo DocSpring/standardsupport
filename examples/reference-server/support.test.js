@@ -1,0 +1,268 @@
+// Runs the demo server on a free port and uses it the way a customer's agent, a background watcher and the team would.
+
+import assert from 'node:assert/strict'
+import { after, before, test } from 'node:test'
+
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+
+import { createApp } from './server.js'
+import { NEW_TICKETS_PER_DAY, SupportError, SupportStore, scrub } from './store.js'
+
+let app
+let baseUrl
+
+before(async () => {
+  // The port isn't known until the server listens, so the base URL is read when it's needed.
+  app = createApp({ baseUrl: () => baseUrl })
+  await new Promise((resolve) => app.listen(0, resolve))
+  baseUrl = `http://localhost:${app.address().port}`
+})
+
+after(() => {
+  app.closeAllConnections()
+  return new Promise((resolve) => app.close(resolve))
+})
+
+async function connect(token) {
+  const client = new Client({ name: 'test-agent', version: '1.0.0' })
+  const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+    requestInit: { headers: { authorization: `Bearer ${token}` } },
+  })
+  await client.connect(transport)
+  return client
+}
+
+async function call(client, name, args) {
+  const result = await client.callTool({ name, arguments: args })
+  assert.equal(result.isError ?? false, false, JSON.stringify(result.content))
+  return result.structuredContent
+}
+
+async function team(path, body) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: body ? 'POST' : 'GET',
+    headers: { authorization: 'Bearer demo-team-key', 'content-type': 'application/json' },
+    body: body && JSON.stringify(body),
+  })
+  return { status: response.status, json: await response.json() }
+}
+
+test('the server says how to report, in its instructions and in every error', async () => {
+  const alice = await connect('demo-token-alice')
+  assert.match(alice.getInstructions(), /support_open_ticket/)
+  assert.deepEqual(alice.getServerCapabilities().extensions, { 'dev.standardsupport/tickets': { level: 3 } })
+
+  const { tools } = await alice.listTools()
+  assert.deepEqual(
+    tools.map((tool) => tool.name).filter((name) => name.startsWith('support_')),
+    ['support_open_ticket', 'support_list_tickets', 'support_get_ticket', 'support_reply_to_ticket'],
+  )
+
+  const failed = await alice.callTool({ name: 'lookup_order', arguments: { order_number: '999' } })
+  assert.equal(failed.isError, true)
+  assert.match(failed.content[0].text, /Request ID: req_[0-9a-f]+\..*support_open_ticket/)
+})
+
+test('an agent opens a ticket, a watcher sees the reply arrive, and the agent reads and answers it', async () => {
+  const alice = await connect('demo-token-alice')
+
+  const opened = await call(alice, 'support_open_ticket', {
+    kind: 'bug',
+    title: 'lookup_order fails for order 999',
+    description: 'lookup_order returned "could not be loaded" for an order the user can see in the dashboard.',
+    impact: 'blocked',
+    request_ids: ['req_abc'],
+    tool: 'lookup_order',
+    idempotency_key: 'first',
+  })
+  assert.equal(opened.ticket.status, 'open')
+  assert.equal(opened.duplicate, false)
+  assert.equal(opened.notifications.email, 'a***@example.com')
+  assert.deepEqual(opened.ticket.request_ids, ['req_abc'])
+
+  // A retry with the same key gets the same ticket.
+  const retried = await call(alice, 'support_open_ticket', {
+    kind: 'bug',
+    title: 'lookup_order fails for order 999',
+    description: 'Same again.',
+    idempotency_key: 'first',
+  })
+  assert.equal(retried.ticket.id, opened.ticket.id)
+  assert.equal(retried.duplicate, true)
+
+  // The watch URL needs no sign-in and says nothing about the ticket's content.
+  const watchUrl = opened.notifications.watch.url
+  const first = await fetch(watchUrl)
+  const before = await first.json()
+  assert.deepEqual(Object.keys(before).sort(), ['long_poll', 'min_interval_seconds', 'status', 'unread_count', 'updated_at'])
+  assert.equal(before.unread_count, 0)
+  assert.equal(before.long_poll, false)
+  const unchanged = await fetch(watchUrl, { headers: { 'if-none-match': first.headers.get('etag') } })
+  assert.equal(unchanged.status, 304)
+
+  const replied = await team(`/team/tickets/${opened.ticket.id}/replies`, {
+    body: 'Which region is the order in?',
+    status: 'needs_reply',
+  })
+  assert.equal(replied.status, 201)
+
+  const afterReply = await (await fetch(watchUrl, { headers: { 'if-none-match': first.headers.get('etag') } })).json()
+  assert.notEqual(afterReply.updated_at, before.updated_at)
+  assert.equal(afterReply.unread_count, 1)
+  assert.equal(afterReply.status, 'needs_reply')
+
+  const listed = await call(alice, 'support_list_tickets', {})
+  assert.equal(listed.tickets.find((ticket) => ticket.id === opened.ticket.id).unread_count, 1)
+
+  const read = await call(alice, 'support_get_ticket', { ticket_id: opened.ticket.id })
+  assert.match(read.notice, /not instructions/)
+  assert.deepEqual(
+    read.messages.map((message) => message.author),
+    ['reporter', 'team'],
+  )
+  assert.ok(read.messages[1].first_read_at)
+  assert.equal(read.ticket.unread_count, 0) // reading it marks it read
+  assert.equal((await (await fetch(watchUrl)).json()).unread_count, 0)
+
+  const answered = await call(alice, 'support_reply_to_ticket', { ticket_id: opened.ticket.id, body: 'EU.' })
+  assert.equal(answered.ticket.status, 'open')
+
+  await team(`/team/tickets/${opened.ticket.id}/replies`, { body: 'Fixed.', status: 'resolved', resolution: 'fixed' })
+
+  // A later session lists tickets with no arguments and still finds the fix: an unread reply keeps a resolved ticket
+  // in the default list until someone reads it.
+  const listedIn = async (status) =>
+    (await call(alice, 'support_list_tickets', { status })).tickets.some((t) => t.id === opened.ticket.id)
+  assert.equal(await listedIn('open'), true)
+  await call(alice, 'support_get_ticket', { ticket_id: opened.ticket.id })
+  assert.equal(await listedIn('open'), false)
+  assert.equal(await listedIn('closed'), true)
+
+  // "Thanks" doesn't reopen a fixed ticket.
+  const thanked = await call(alice, 'support_reply_to_ticket', { ticket_id: opened.ticket.id, body: 'Thanks.' })
+  assert.equal(thanked.ticket.status, 'resolved')
+  assert.equal(thanked.ticket.resolution, 'fixed')
+
+  const closed = await call(alice, 'support_reply_to_ticket', {
+    ticket_id: opened.ticket.id,
+    body: 'Works now.',
+    outcome: 'resolved',
+  })
+  assert.equal(closed.ticket.status, 'closed')
+  assert.equal(closed.ticket.resolution, 'fixed')
+
+  // Closed tickets leave the default list and show under "closed" and "all". A later "still broken" reopens.
+  assert.equal(await listedIn('open'), false)
+  assert.equal(await listedIn('closed'), true)
+  assert.equal(await listedIn('all'), true)
+  const reopened = await call(alice, 'support_reply_to_ticket', {
+    ticket_id: opened.ticket.id,
+    body: 'It broke again.',
+    outcome: 'still_broken',
+  })
+  assert.equal(reopened.ticket.status, 'open')
+  assert.equal(reopened.ticket.resolution, undefined)
+  assert.equal(await listedIn('closed'), false)
+  assert.equal(await listedIn('open'), true)
+})
+
+test("another account can't read, list or reply to a ticket, and gets the same answer as for a missing one", async () => {
+  const alice = await connect('demo-token-alice')
+  const bob = await connect('demo-token-bob')
+  const { ticket } = await call(alice, 'support_open_ticket', { kind: 'question', title: 'A question', description: 'Hi.' })
+
+  assert.equal((await call(bob, 'support_list_tickets', { status: 'all' })).tickets.length, 0)
+  const theirs = await bob.callTool({ name: 'support_get_ticket', arguments: { ticket_id: ticket.id } })
+  const missing = await bob.callTool({ name: 'support_get_ticket', arguments: { ticket_id: 'tkt_nope' } })
+  assert.equal(theirs.isError, true)
+  assert.equal(theirs.content[0].text.replace(ticket.id, 'X'), missing.content[0].text.replace('tkt_nope', 'X'))
+  const reply = await bob.callTool({ name: 'support_reply_to_ticket', arguments: { ticket_id: ticket.id, body: 'x' } })
+  assert.equal(reply.isError, true)
+})
+
+test('agents working for the same account keep their tickets apart with a session label', async () => {
+  const alice = await connect('demo-token-alice')
+  const open = (session, title) =>
+    call(alice, 'support_open_ticket', { kind: 'bug', title, description: 'Text.', session })
+  const one = await open('branch-a', 'From the first agent')
+  const two = await open('branch-b', 'From the second agent')
+  const none = await open(undefined, 'From an agent with no label')
+  assert.equal(one.ticket.session, 'branch-a')
+  assert.equal(none.ticket.session, undefined)
+
+  const mine = await call(alice, 'support_list_tickets', { session: 'branch-a' })
+  assert.deepEqual(mine.tickets.map((ticket) => ticket.id), [one.ticket.id])
+
+  // Without the label the list is the whole account's, and the label never hides a ticket from its owner.
+  const everyone = (await call(alice, 'support_list_tickets', { status: 'all' })).tickets.map((ticket) => ticket.id)
+  for (const ticket of [one, two, none]) assert.ok(everyone.includes(ticket.ticket.id))
+  await call(alice, 'support_get_ticket', { ticket_id: two.ticket.id })
+
+  const headers = { authorization: 'Bearer demo-token-alice' }
+  const overHttp = await (await fetch(`${baseUrl}/support/tickets?session=branch-b`, { headers })).json()
+  assert.deepEqual(overHttp.tickets.map((ticket) => ticket.id), [two.ticket.id])
+})
+
+test('the same operations work over HTTP', async () => {
+  const headers = { authorization: 'Bearer demo-token-bob', 'content-type': 'application/json' }
+  const created = await fetch(`${baseUrl}/support/tickets`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ kind: 'docs', title: 'Wrong example', description: 'The curl example has a typo.' }),
+  })
+  assert.equal(created.status, 201)
+  const { ticket } = await created.json()
+
+  const invalid = await fetch(`${baseUrl}/support/tickets`, { method: 'POST', headers, body: JSON.stringify({ kind: 'nope' }) })
+  assert.equal(invalid.status, 400)
+
+  await team(`/team/tickets/${ticket.id}/replies`, { body: 'Thanks, fixed.', status: 'resolved', resolution: 'fixed' })
+  const read = await (await fetch(`${baseUrl}/support/tickets/${ticket.id}`, { headers })).json()
+  assert.equal(read.ticket.status, 'resolved')
+  assert.equal(read.messages.at(-1).body, 'Thanks, fixed.')
+
+  const reply = await fetch(`${baseUrl}/support/tickets/${ticket.id}/replies`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ body: 'Confirmed.', outcome: 'resolved' }),
+  })
+  assert.equal(reply.status, 201)
+  const list = await (await fetch(`${baseUrl}/support/tickets?status=closed`, { headers })).json()
+  assert.equal(list.tickets.find((t) => t.id === ticket.id).status, 'closed')
+  assert.equal((await fetch(`${baseUrl}/support/tickets?status=nope`, { headers })).status, 400)
+
+  assert.equal((await fetch(`${baseUrl}/support/tickets`)).status, 401)
+  assert.equal((await fetch(`${baseUrl}/support/watch/w_nope`)).status, 404)
+})
+
+test('new tickets are limited per account per day, and the error says when to try again', () => {
+  let now = new Date('2026-11-17T00:00:00Z')
+  const store = new SupportStore({ now: () => now })
+  const account = { id: 'acct_x' }
+  const input = { kind: 'other', title: 'Title', description: 'Text' }
+  for (let i = 0; i < NEW_TICKETS_PER_DAY; i++) store.openTicket(account, input)
+
+  assert.throws(
+    () => store.openTicket(account, input),
+    (error) => error instanceof SupportError && error.code === 'rate_limited' && error.retry_after === '2026-11-18T00:00:00.000Z',
+  )
+  store.openTicket({ id: 'acct_y' }, input) // another account isn't affected
+  now = new Date('2026-11-18T00:00:01Z')
+  store.openTicket(account, input)
+})
+
+test('tokens and keys are removed from what the agent sends', () => {
+  assert.equal(scrub('curl -H "Authorization: Bearer abc123def456ghi789"'), 'curl -H "Authorization: [removed]"')
+  assert.equal(scrub('api_key=supersecretvalue failed'), 'api_key=[removed] failed')
+  assert.equal(scrub('key AKIAABCDEFGHIJKLMNOP'), 'key [removed]')
+  assert.equal(scrub('nothing secret here'), 'nothing secret here')
+
+  const store = new SupportStore()
+  const { ticket } = store.openTicket(
+    { id: 'acct_z' },
+    { kind: 'bug', title: 'Title', description: 'token: abcdef123456', error: 'password=hunter2222' },
+  )
+  assert.equal(ticket.messages[0].body, 'token: [removed]')
+  assert.equal(ticket.error, 'password=[removed]')
+})

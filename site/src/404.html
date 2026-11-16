@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Not found: Standard Support</title>
+    <meta name="robots" content="noindex" />
+    <!--HEAD-->
+  </head>
+  <body>
+    <main class="page">
+      <div class="theme" role="group" aria-label="Theme" hidden>
+        <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
+        <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+        <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+      </div>
+      <header>
+        <h1><img src="/favicon.svg" alt="" width="40" height="40" />Standard Support</h1>
+        <p class="summary">There is no page at this address.</p>
+        <p><a href="/">Go to the home page</a>, which has the whole spec.</p>
+      </header>
+    </main>
+    <script>
+      // Theme: follows the system unless the visitor picks light or dark, which is remembered on this device.
+      ;(function () {
+        var group = document.querySelector('.theme')
+        if (!group) return
+        var root = document.documentElement
+        var buttons = group.querySelectorAll('button')
+        function show(choice) {
+          buttons.forEach(function (button) {
+            button.setAttribute('aria-pressed', String(button.dataset.themeChoice === choice))
+          })
+        }
+        function apply(choice) {
+          if (choice === 'system') delete root.dataset.theme
+          else root.dataset.theme = choice
+          try {
+            if (choice === 'system') localStorage.removeItem('theme')
+            else localStorage.setItem('theme', choice)
+          } catch (e) {}
+          show(choice)
+        }
+        buttons.forEach(function (button) {
+          button.addEventListener('click', function () {
+            apply(button.dataset.themeChoice)
+          })
+        })
+        show(root.dataset.theme || 'system')
+        group.hidden = false
+      })()
+    </script>
+  </body>
+</html>

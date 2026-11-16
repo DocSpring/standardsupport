@@ -1,0 +1,47 @@
+# Builds the site and publishes it to GitHub Pages (standardsupport.dev) on every push to main, after the reference
+# server's tests pass.
+name: Site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check that the skill's copy of the spec is current
+        run: scripts/sync_skill_spec --check
+      - name: Test the reference server
+        working-directory: examples/reference-server
+        run: npm ci && npm test
+      - name: Build the site
+        working-directory: site
+        run: npm ci && npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
