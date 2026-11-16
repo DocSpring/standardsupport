@@ -89,7 +89,7 @@ const pageMarkdown = turndown
 await writeFile(new URL('index.md', dist), `${pageMarkdown}\n`)
 await writeFile(new URL('spec.md', dist), spec)
 await writeFile(new URL('404.html', dist), fill(await read('404.html'), '<!--HEAD-->', await read('_head.html')))
-for (const file of ['styles.css', 'favicon.svg', 'llms.txt', 'CNAME']) await cp(new URL(file, src), new URL(file, dist))
+for (const file of ['styles.css', 'favicon.svg', 'og.png', 'llms.txt', 'CNAME']) await cp(new URL(file, src), new URL(file, dist))
 await cp(new URL('fonts/', src), new URL('fonts/', dist), { recursive: true })
 
 console.log('Built site/dist')

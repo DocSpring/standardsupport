@@ -55,7 +55,8 @@ an issue here, or write to hello@standardsupport.dev.
 - **The site**: `cd site && npm install && npm run build` writes `site/dist/`, and `npm run serve` shows it at
   http://127.0.0.1:4321/. It renders `spec/README.md` and `ADOPTERS.md` into the page, so neither is copied by hand,
   and writes the whole page as Markdown too (`/index.md`). The Hacker News and X links in the Feedback section come
-  from `site/src/links.json`. The fonts in `site/src/fonts/` are under the SIL Open Font License.
+  from `site/src/links.json`. The link preview image is `site/og/og.html`, rendered to `site/src/og.png` by
+  `site/og/render`. The fonts in `site/src/fonts/` are under the SIL Open Font License.
 - **Publishing**: every push to `main` runs the checks and publishes the site to standardsupport.dev through GitHub
   Pages (`.github/workflows/site.yml`).
 
