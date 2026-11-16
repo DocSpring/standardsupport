@@ -289,5 +289,5 @@ You are free to add fields and kinds at any level. Clients ignore what they don'
 - **0.2, 17 November 2026.** Added `support_get_help`, an optional tool that answers a question from your
   documentation without opening a ticket. `source` now has consequences: a ticket the user asked for needs no
   further confirmation, and one the agent noticed itself does. `source` is returned on the ticket. Both came from
-  [a comment on Hacker News](https://news.ycombinator.com/item?id=50525068).
+  [a comment on Hacker News](https://news.ycombinator.com/item?id=50525068) by scottfalconer. Thank you.
 - **0.1, 17 November 2026.** The first draft.
