@@ -27,14 +27,13 @@ test("the skill's descriptions.md has the same wording as the tools this server 
     help: async () => undefined,
   })
 
+  // The document quotes the full versions (with help and tickets). A server without one of them drops its sentence.
   const inCode = {
-    'the server instructions': supportInstructions('Acme'),
-    'the server instructions with help': supportInstructions('Acme', { help: true }),
-    'the error line': errorNudge('Acme', '{request_id}'),
-    'the error line with help': errorNudge('Acme', '{request_id}', { help: true }),
+    'the server instructions': supportInstructions('Acme', { help: true }),
+    'the error line': errorNudge('Acme', '{request_id}', { help: true }),
     ...Object.fromEntries(Object.entries(registered).map(([name, config]) => [name, config.description])),
   }
-  assert.equal(Object.keys(registered).length, 5)
+  assert.equal(Object.keys(registered).length, 6)
   for (const [name, text] of Object.entries(inCode)) {
     assert.ok(quoted.includes(asWritten(text)), `descriptions.md is out of date for ${name}: ${asWritten(text)}`)
   }

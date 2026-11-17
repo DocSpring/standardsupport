@@ -50,20 +50,27 @@ async function team(path, body) {
 
 test('the server says how to report, in its instructions and in every error', async () => {
   const alice = await connect('demo-token-alice')
-  assert.match(alice.getInstructions(), /support_open_ticket/)
+  assert.match(alice.getInstructions(), /support_get_help.*support_send_feedback.*support_open_ticket/)
   assert.deepEqual(alice.getServerCapabilities().extensions, {
-    'dev.standardsupport/tickets': { level: 3, help: true },
+    'dev.standardsupport/support': { level: 3, help: true },
   })
 
   const { tools } = await alice.listTools()
   assert.deepEqual(
     tools.map((tool) => tool.name).filter((name) => name.startsWith('support_')),
-    ['support_get_help', 'support_open_ticket', 'support_list_tickets', 'support_get_ticket', 'support_reply_to_ticket'],
+    [
+      'support_get_help',
+      'support_send_feedback',
+      'support_open_ticket',
+      'support_list_tickets',
+      'support_get_ticket',
+      'support_reply_to_ticket',
+    ],
   )
 
   const failed = await alice.callTool({ name: 'lookup_order', arguments: { order_number: '999' } })
   assert.equal(failed.isError, true)
-  assert.match(failed.content[0].text, /Request ID: req_[0-9a-f]+\..*support_get_help.*support_open_ticket/)
+  assert.match(failed.content[0].text, /Request ID: req_[0-9a-f]+\..*support_get_help.*support_send_feedback.*support_open_ticket/)
 })
 
 test('an agent asks for help first, and the answer saves a ticket when the documentation covers it', async () => {
@@ -77,7 +84,7 @@ test('an agent asks for help first, and the answer saves a ticket when the docum
   assert.equal(helped.answered, true)
   assert.match(helped.answer, /start at 1000/)
   assert.equal(helped.sources[0].title, 'Order numbers')
-  assert.match(helped.next, /support_open_ticket/)
+  assert.match(helped.next, /support_send_feedback.*support_open_ticket/)
 
   const unknown = await call(alice, 'support_get_help', { question: 'Can I export invoices as a spreadsheet?' })
   assert.equal(unknown.answered, false)
@@ -94,6 +101,59 @@ test('an agent asks for help first, and the answer saves a ticket when the docum
   })
   assert.equal(overHttp.status, 200)
   assert.equal((await overHttp.json()).sources[0].title, 'Rate limits')
+})
+
+test('feedback is one-way: it gets an ID, opens no ticket, and the team can turn it into one to answer', async () => {
+  const alice = await connect('demo-token-alice')
+  const sent = await call(alice, 'support_send_feedback', {
+    kind: 'confusing',
+    description: 'The error for an unknown order says "could not be loaded", which reads like an outage. token: abcdef123456',
+    impact: 'friction',
+    tool: 'lookup_order',
+    session: 'feedback-test',
+    idempotency_key: 'fb-1',
+  })
+  assert.match(sent.feedback.id, /^fb_/)
+  assert.match(sent.follow_up, /Nobody replies to feedback/)
+  assert.equal(sent.duplicate, false)
+  assert.equal((await call(alice, 'support_send_feedback', {
+    kind: 'confusing',
+    description: 'Again.',
+    idempotency_key: 'fb-1',
+  })).feedback.id, sent.feedback.id)
+
+  // It isn't a ticket, and the agent has nothing to read back.
+  const mine = () => call(alice, 'support_list_tickets', { status: 'all', session: 'feedback-test' })
+  assert.equal((await mine()).tickets.length, 0)
+
+  // The team sees it in its own queue, with the pasted token removed.
+  const queue = await team('/team/feedback')
+  const stored = queue.json.feedback.find((item) => item.id === sent.feedback.id)
+  assert.equal(stored.source, 'agent')
+  assert.match(stored.description, /token: \[removed\]/)
+
+  // When the team wants to answer, the feedback becomes a ticket with their message as an unread reply. A later
+  // session finds it in the ordinary list.
+  const promoted = await team(`/team/feedback/${sent.feedback.id}/promote`, {
+    title: 'Clearer error for an order number that does not exist',
+    body: 'Thanks. The error now says the order number does not exist.',
+  })
+  assert.equal(promoted.status, 201)
+  const tickets = (await mine()).tickets
+  assert.equal(tickets.length, 1)
+  assert.equal(tickets[0].from_feedback, sent.feedback.id)
+  assert.equal(tickets[0].unread_count, 1)
+  const read = await call(alice, 'support_get_ticket', { ticket_id: tickets[0].id })
+  assert.deepEqual(read.messages.map((message) => message.author), ['reporter', 'team'])
+
+  // The same over HTTP.
+  const overHttp = await fetch(`${baseUrl}/support/feedback`, {
+    method: 'POST',
+    headers: { authorization: 'Bearer demo-token-bob', 'content-type': 'application/json' },
+    body: JSON.stringify({ kind: 'docs', description: 'The rate limit page has no example.' }),
+  })
+  assert.equal(overHttp.status, 201)
+  assert.match((await overHttp.json()).feedback.id, /^fb_/)
 })
 
 test('a ticket records whether the user asked for it or the agent noticed the problem', async () => {

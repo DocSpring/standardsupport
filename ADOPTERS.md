@@ -15,7 +15,7 @@ Open a pull request that adds one row to the table, in alphabetical order:
 
 - **Product**: its name, linked to its home page.
 - **What it is**: a few plain words. No adjectives like "the best" or "leading".
-- **Level**: 1 (reports), 2 (replies) or 3 (the watch URL too).
+- **Level**: 1 (feedback), 2 (tickets too) or 3 (the watch URL too). Add "+ help" if you have `support_get_help`.
 - **Since**: the date it shipped, as `YYYY-MM-DD`.
 - **Proof**: a link to the release notes, docs page or commit that shows the tools.
 

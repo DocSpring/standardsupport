@@ -1,7 +1,7 @@
 # Standard Support
 
-A convention for support tickets from AI agents. Let a customer's AI agent ask for help, report a problem to your
-team and pick up the reply, even in a later session.
+A convention for support from AI agents. Let a customer's AI agent ask for help, send feedback, or open a ticket
+with your team and pick up the reply, even in a later session.
 
 **Read it at [standardsupport.dev](https://standardsupport.dev).** The whole thing is on one page: an example, why,
 the spec, questions and adopters.
@@ -11,15 +11,20 @@ that can't do what was asked, it works around the problem or gives up. Standard 
 decisions for fixing that: what to call the tools, which fields to ask for, how a reply reaches an agent that
 usually has no inbox, who owns a ticket, and how to keep injected text from steering either side.
 
-It comes down to four tools on your MCP server (`support_open_ticket`, `support_list_tickets`, `support_get_ticket`
-and `support_reply_to_ticket`), the same operations over HTTP, and a status URL on each ticket that a background
-script can poll. You can stop after the first tool. An optional fifth, `support_get_help`, answers a question from
-your documentation without opening a ticket.
+An agent can do three things, each with its own tool and rules:
+
+- **Ask for help** (`support_get_help`, optional): a question answered from your documentation. No ticket.
+- **Send feedback** (`support_send_feedback`): something got in the way and the work carried on. Nobody replies.
+- **Open a ticket** (`support_open_ticket`, with `support_list_tickets`, `support_get_ticket` and
+  `support_reply_to_ticket`): the user is blocked or needs an answer, and a person on your team replies.
+
+The same operations work over HTTP, and each ticket has a status URL that a background script can poll. You can stop
+after the feedback tool.
 
 Nothing breaks if you implement this differently. Agents read each tool's description, so this doesn't need
 everyone to agree. You can adopt what works for your product and extend it however you like.
 
-**Status: draft 0.2, published early for feedback.** Names and fields may still change. Nobody has shipped it yet;
+**Status: draft 0.3, published early for feedback.** Names and fields may still change. Nobody has shipped it yet;
 DocSpring's implementation is being built.
 
 ## What's here

@@ -4,7 +4,7 @@
     <title>Standard Support: support tickets from AI agents</title>
     <meta
       name="description"
-      content="A proposed convention for support tickets from AI agents. Let a customer's AI agent report a problem to your team and pick up the reply, even in a later session."
+      content="A proposed convention for support from AI agents. Let a customer's AI agent ask for help, send feedback, or open a ticket with your team and pick up the reply, even in a later session."
     />
     <meta property="og:title" content="Standard Support" />
     <meta property="og:description" content="A proposed convention for support tickets from AI agents." />
@@ -34,11 +34,11 @@
       <header>
         <h1><img src="/favicon.svg" alt="" width="40" height="40" />Standard Support</h1>
         <p class="summary">
-          A convention for support tickets from AI agents. Let a customer's AI agent ask for help, report a problem to
-          your team and pick up the reply, even in a later session.
+          A convention for support from AI agents. Let a customer's AI agent ask for help, send feedback, or open a
+          ticket with your team and pick up the reply, even in a later session.
         </p>
         <p class="meta">
-          A proposal. Draft 0.2, 17 November 2026. By
+          A proposal. Draft 0.3, 17 November 2026. By
           <a href="https://x.com/ndbroadbent">Nathan Broadbent</a> at
           <a href="https://docspring.com">DocSpring</a>.
         </p>
@@ -66,9 +66,12 @@
   "answered": false,
   "answer": "The documentation doesn't answer this.",
   "sources": [],
-  "next": "If this doesn't solve the problem, tell the user and offer to report it to the team with support_open_ticket."
+  "next": "If this doesn't solve the problem, send it with support_send_feedback, or if the user is blocked, tell them and offer to open a ticket with support_open_ticket."
 }</code></pre>
-        <p>The documentation has nothing, so the agent tells the user, who agrees to report it:</p>
+        <p>
+          The documentation has nothing. The user needs the full document, so this is more than feedback: the agent
+          tells the user, who agrees to open a ticket.
+        </p>
         <pre><code><span class="k">support_open_ticket</span>({
   "kind": "wrong_result",
   "title": "Export returns 2 pages for a 3-page document",
@@ -119,7 +122,8 @@
         </p>
         <p>
           Many MCP servers gained a feedback tool during 2026, each under a different name and almost all one-way:
-          the report goes in and nothing comes back. Support tools still assume a person typing into a chat window.
+          the report goes in and nothing comes back. That is fine for feedback, and no use when someone needs an
+          answer. Support tools still assume a person typing into a chat window.
         </p>
         <p>
           It is written with developer tools in mind, where an AI coding agent builds an integration with your
@@ -157,7 +161,7 @@
         <p>
           Or copy from the
           <a href="https://github.com/DocSpring/standardsupport/tree/main/examples/reference-server">reference server</a>:
-          about 900 lines of plain JavaScript with tests, written to be read.
+          about 1,100 lines of plain JavaScript with tests, written to be read.
         </p>
       </section>
 
@@ -173,17 +177,17 @@
 
         <h3>Why not the feedback tool my MCP server already has?</h3>
         <p>
-          Keep it and add to it. The first tool here is that tool, with the same kinds of fields that Sentry's,
-          Clerk's and others' use, plus a request ID and a ticket the agent can come back to. If you never reply,
-          stop at level 1.
+          Keep it. It is level 1 here: <code>support_send_feedback</code> takes the same kinds of fields that
+          Sentry's, Clerk's and others' use, plus a request ID. Stop there if that is all you want. Tickets are for
+          the cases feedback can't handle, where someone needs an answer.
         </p>
 
-        <h3>Why a help tool as well as tickets?</h3>
+        <h3>Why three tools and not one?</h3>
         <p>
-          Much of what looks like a bug is an agent that didn't read the documentation, and an answer on the spot
-          beats a ticket. The two are also different kinds of thing. Help answers from your own documentation, so
-          you can hand it to an agent of yours and leave it running. A ticket carries a customer's problem to your
-          team, and a person should be watching. The help tool is optional.
+          Because they are three different things, and one tool blurs them. Help answers from your documentation, so
+          it can run by itself. Feedback goes one way, so you can invite a lot of it and nobody has to reply. A
+          ticket is a conversation with a person on your team, so the user agrees first and someone keeps watch.
+          Agents tell them apart from the descriptions, and you can send each to a different place.
         </p>
 
         <h3>Why not email or a chat widget?</h3>
@@ -206,7 +210,7 @@
 
         <h3>Is it an MCP extension?</h3>
         <p>
-          Not an official one. Servers can advertise the identifier <code>dev.standardsupport/tickets</code> so that clients
+          Not an official one. Servers can advertise the identifier <code>dev.standardsupport/support</code> so that clients
           and directories can tell, and the tools work without it.
         </p>
 
@@ -216,13 +220,14 @@
           today. Webhooks can be added as a channel when clients can receive them.
         </p>
 
-        <h3>Does the agent ask the user before reporting?</h3>
+        <h3>Does the agent ask the user first?</h3>
         <p>
-          By default, yes. It tells the user what happened, shows what it would send and waits for a yes, and the
-          tools that write are marked as writes, so clients that confirm writes will ask too. Not every team wants
-          every rough edge an agent met in its inbox. Some companies will prefer to go the other way and invite as
-          much feedback as the agent is willing to give. DocSpring, which wrote this, leans that way. The spec has
-          the wording for both.
+          For a ticket, yes, unless the user asked for it: the agent tells them what happened, shows what it would
+          send and waits for a yes. For feedback, no: it sends it and tells them afterwards, the way the feedback
+          tools on several vendors' servers already work. Everything that sends something is marked as a write, so
+          a customer whose client confirms writes always has the last word. DocSpring, which wrote this, wants as
+          much feedback as an agent is willing to give. If you want less, the wording reference has the sentence to
+          change.
         </p>
 
         <h3>Who is behind this, and what do you get out of it?</h3>

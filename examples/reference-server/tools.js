@@ -29,6 +29,7 @@ const ticketShape = {
   suggestion: z.string().optional(),
   session: z.string().optional(),
   source: z.enum(['agent', 'user']),
+  from_feedback: z.string().optional(),
   created_at: z.string(),
   updated_at: z.string(),
   unread_count: z.number().int(),
@@ -43,38 +44,43 @@ const messageSchema = z.object({
   first_read_at: z.string().optional(),
 })
 
-// One sentence for the server's `instructions`, and one line for the end of every error your own tools return.
+// A few sentences for the server's `instructions`, and one line for the end of every error your own tools return.
 // Agents rarely report unprompted, and clients that load tools lazily never show them a tool's description.
-// Pass { help: true } when the server has support_get_help, so agents ask before they report.
-export function supportInstructions(product, { help = false } = {}) {
-  if (help) {
-    return (
-      `When a ${product} tool fails, returns a wrong result or can't do what the user asked, ask ` +
-      "support_get_help first. If that doesn't solve it, tell the user and offer to report it to the team with " +
-      'support_open_ticket.'
-    )
-  }
-  return (
-    `When a ${product} tool fails, returns a wrong result or can't do what the user asked, tell the user and ` +
-    'offer to report it to the team with support_open_ticket.'
-  )
+// Leave out what the server doesn't have: { help: false } without support_get_help, { tickets: false } for a
+// server that only takes feedback.
+export function supportInstructions(product, { help = false, tickets = true } = {}) {
+  return [
+    help && `When a tool from ${product} fails or you aren't sure how to do something, ask support_get_help first.`,
+    `When something about ${product} got in your way (a confusing error, a missing feature, a bug you worked ` +
+      'around), send it with support_send_feedback.',
+    tickets &&
+      `When the user is blocked or needs an answer from the ${product} team, tell them and offer to open a ticket ` +
+        'with support_open_ticket.',
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
-export function errorNudge(product, requestId, { help = false } = {}) {
-  if (help) {
-    return (
-      `Request ID: ${requestId}. For help with this error, call support_get_help. If it looks like a ${product} ` +
-      'bug or it still blocks the task, offer to report it with support_open_ticket and include this request ID.'
-    )
-  }
-  return (
-    `Request ID: ${requestId}. If this looks like a ${product} bug or it blocks the task, offer to report it with ` +
-    'support_open_ticket and include this request ID.'
-  )
+export function errorNudge(product, requestId, { help = false, tickets = true } = {}) {
+  return [
+    `Request ID: ${requestId}.`,
+    help && 'For help with this error, call support_get_help.',
+    tickets
+      ? 'Report it with support_send_feedback, or if it blocks the task, offer to open a ticket with ' +
+        'support_open_ticket.'
+      : 'Report it with support_send_feedback.',
+    'Include this request ID.',
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 const HELP_NEXT =
-  "If this doesn't solve the problem, tell the user and offer to report it to the team with support_open_ticket."
+  "If this doesn't solve the problem, send it with support_send_feedback, or if the user is blocked, tell them and " +
+  'offer to open a ticket with support_open_ticket.'
+const FEEDBACK_FOLLOW_UP =
+  'Nobody replies to feedback. The team may email the user if it acts on this. If the user needs an answer, open a ' +
+  'ticket with support_open_ticket.'
 const HELP_NO_ANSWER = "The documentation doesn't answer this."
 
 // The answer to a question, shaped the same for the MCP tool and the HTTP endpoint.
@@ -105,7 +111,8 @@ export function registerSupportTools(server, store, options) {
           'something, what an error means, whether a problem is already known. Call this first when a tool fails ' +
           'or you are not sure how to do what the user asked. It opens no ticket, so you do not need to ask the ' +
           "user first. Never include secrets, credentials or the user's data. If the answer doesn't solve the " +
-          'problem, tell the user and offer to report it to the team with support_open_ticket.',
+          'problem, send it with support_send_feedback, or if the user is blocked, tell them and offer to open a ' +
+          'ticket with support_open_ticket.',
         inputSchema: {
           question: z.string().min(3).max(2000).describe('What you want to know, in a sentence or two.'),
           tool: z.string().max(100).optional().describe('The tool involved, if any.'),
@@ -136,56 +143,90 @@ export function registerSupportTools(server, store, options) {
   }
   const present = (ticket) => presentTicket(ticket, { baseUrl })
 
+  // What a piece of feedback and a ticket both carry.
+  const reportFields = {
+    kind: z.enum(KINDS).describe('What kind of problem this is.'),
+    description: z.string().min(1).max(4000).describe('What you tried, what you expected and what happened.'),
+    impact: z
+      .enum(IMPACTS)
+      .optional()
+      .describe('blocked: the task could not be done. worked_around: done another way. friction: only slower.'),
+    task: z.string().max(200).optional().describe('What the user asked you to do, in a short phrase.'),
+    request_ids: z
+      .array(z.string().max(200))
+      .max(10)
+      .optional()
+      .describe(`Request IDs from ${product}'s error messages or results.`),
+    tool: z.string().max(100).optional().describe('The tool involved.'),
+    error: z.string().max(4000).optional().describe('The exact error text.'),
+    suggestion: z.string().max(2000).optional().describe('What would have helped.'),
+    source: z
+      .enum(['agent', 'user'])
+      .optional()
+      .describe('user: the user asked you to send this. agent (default): you noticed the problem yourself.'),
+    session: z
+      .string()
+      .max(100)
+      .optional()
+      .describe('A label for the work you are doing, such as a session ID, a branch or a task name.'),
+    agent: z
+      .object({
+        name: z.string().max(100).optional(),
+        version: z.string().max(50).optional(),
+        model: z.string().max(100).optional(),
+      })
+      .optional()
+      .describe('The agent sending this.'),
+    idempotency_key: z.string().max(64).optional().describe('A retry with the same key returns the same record.'),
+  }
+
+  server.registerTool(
+    'support_send_feedback',
+    {
+      title: `Send feedback to the ${product} team`,
+      description:
+        `Tell the ${product} team about something that got in your way while the work still got done: a ` +
+        'confusing tool or error, a missing feature, wrong documentation, a bug you worked around, or an idea. ' +
+        'Nobody replies to feedback. Send it without asking the user, at most once per distinct problem, and ' +
+        'tell the user afterwards what you sent. If the user is blocked or needs an answer, use ' +
+        `support_open_ticket instead. Only for ${product} itself, not for other tools or services. Never include ` +
+        "secrets, credentials or the user's data. If this call fails, carry on with the task and do not retry.",
+      inputSchema: reportFields,
+      outputSchema: {
+        feedback: z.object({ id: z.string(), received_at: z.string() }),
+        follow_up: z.string(),
+        duplicate: z.boolean(),
+      },
+      // A write: something leaves the user's machine, so a client that confirms writes can ask.
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    run((account, input, extra) => {
+      const { feedback, duplicate } = store.sendFeedback(account, input, options.context?.(extra) ?? {})
+      return {
+        feedback: { id: feedback.id, received_at: feedback.received_at },
+        follow_up: FEEDBACK_FOLLOW_UP,
+        duplicate,
+      }
+    }),
+  )
+
   server.registerTool(
     'support_open_ticket',
     {
-      title: `Report a problem to the ${product} team`,
+      title: `Open a support ticket with the ${product} team`,
       description:
-        `Report a problem with ${product} to the ${product} team: a bug, a crash, a wrong result, a confusing ` +
-        'tool or error, a missing feature, wrong documentation, or a question. A person on the team reads every ' +
-        'ticket, so report problems that blocked the task or cost real time, not every rough edge. If the user ' +
-        'asked you to send this ("report that", "send that as feedback"), set source to user: they have already ' +
-        'agreed. Otherwise, before calling this, tell the user what happened, show them every piece of text you ' +
-        `would send, and get their yes. Only for ${product} itself, not for other tools or services. One ticket ` +
-        'per distinct problem. Never ' +
+        `Open a support ticket with the ${product} team when the user is blocked, got a wrong result or needs ` +
+        'an answer: a bug, a crash, a wrong result, a missing feature or a question. A person on the team reads ' +
+        'every ticket and replies. For something that only got in the way, use support_send_feedback instead. ' +
+        'If the user asked you to open this, set source to user: they have already agreed. Otherwise, before ' +
+        'calling this, tell the user what happened, show them every piece of text you would send, and get their ' +
+        `yes. Only for ${product} itself, not for other tools or services. One ticket per distinct problem. Never ` +
         "include secrets, credentials or the user's data. The team replies on the ticket: read replies with " +
         'support_get_ticket. If this call fails, carry on with the task and do not retry. Afterwards, tell the ' +
         'user how the reply will arrive.',
       inputSchema: {
-        kind: z.enum(KINDS).describe('What kind of problem this is.'),
         title: z.string().min(3).max(200).describe('One line, written like an issue title.'),
-        description: z.string().min(1).max(4000).describe('What you tried, what you expected and what happened.'),
-        impact: z
-          .enum(IMPACTS)
-          .optional()
-          .describe('blocked: the task could not be done. worked_around: done another way. friction: only slower.'),
-        task: z.string().max(200).optional().describe('What the user asked you to do, in a short phrase.'),
-        request_ids: z
-          .array(z.string().max(200))
-          .max(10)
-          .optional()
-          .describe(`Request IDs from ${product}'s error messages or results.`),
-        tool: z.string().max(100).optional().describe('The tool involved.'),
-        error: z.string().max(4000).optional().describe('The exact error text.'),
-        suggestion: z.string().max(2000).optional().describe('What would have helped.'),
-        source: z
-          .enum(['agent', 'user'])
-          .optional()
-          .describe('user: the user asked you to send this. agent (default): you noticed the problem yourself.'),
-        session: z
-          .string()
-          .max(100)
-          .optional()
-          .describe('A label for the work you are doing, such as a session ID, a branch or a task name.'),
-        agent: z
-          .object({
-            name: z.string().max(100).optional(),
-            version: z.string().max(50).optional(),
-            model: z.string().max(100).optional(),
-          })
-          .optional()
-          .describe('The agent sending this.'),
-        idempotency_key: z.string().max(64).optional().describe('A retry with the same key returns the same ticket.'),
+        ...reportFields,
       },
       outputSchema: {
         ticket: ticketSchema,

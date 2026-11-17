@@ -52,11 +52,11 @@ function buildMcpServer(store, baseUrl) {
     {
       instructions: `Look up Acme orders. ${supportInstructions(PRODUCT, { help: true })}`,
       // Tells clients and directories that this server takes support tickets, and how much of the design it has.
-      capabilities: { extensions: { 'dev.standardsupport/tickets': { level: 3, help: true } } },
+      capabilities: { extensions: { 'dev.standardsupport/support': { level: 3, help: true } } },
     },
   )
 
-  // The product's own tool. Its errors carry a request ID and point at support_open_ticket.
+  // The product's own tool. Its errors carry a request ID and say where to take the problem.
   server.registerTool(
     'lookup_order',
     {
@@ -137,6 +137,21 @@ export function createApp({ store = new SupportStore(), baseUrl }) {
       // The team's side. In a real product this is your admin page, your helpdesk or your own agents.
       if (path.startsWith('/team/')) {
         if (bearer(request) !== DEMO_TEAM_KEY) return send(response, 401, { error: 'Not signed in.' })
+        if (path === '/team/feedback' && request.method === 'GET') {
+          return send(response, 200, { feedback: store.teamFeedback() })
+        }
+        // Turns a piece of feedback into a ticket, which is how the team answers one.
+        const promote = path.match(/^\/team\/feedback\/([A-Za-z0-9_]+)\/promote$/)
+        if (promote && request.method === 'POST') {
+          const input = await readJson(request)
+          if (typeof input.title !== 'string' || input.title.length < 3 || input.title.length > 200) {
+            throw new SupportError('invalid', 'title must be 3 to 200 characters.')
+          }
+          if (input.body !== undefined && (typeof input.body !== 'string' || input.body.length > 4000)) {
+            throw new SupportError('invalid', 'body must be at most 4000 characters.')
+          }
+          return send(response, 201, { ticket: present(store.promoteFeedback(promote[1], input).ticket) })
+        }
         if (path === '/team/tickets' && request.method === 'GET') return send(response, 200, { tickets: store.teamList() })
         const reply = path.match(/^\/team\/tickets\/([A-Za-z0-9_]+)\/replies$/)
         if (reply && request.method === 'POST') {
@@ -184,6 +199,13 @@ export function createApp({ store = new SupportStore(), baseUrl }) {
       }
 
       // The same four operations over HTTP, for agents that use the API, an SDK or a CLI and never load the MCP server.
+      if (path === '/support/feedback' && request.method === 'POST') {
+        const { feedback, duplicate } = store.sendFeedback(account, validateReport(await readJson(request)))
+        return send(response, duplicate ? 200 : 201, {
+          feedback: { id: feedback.id, received_at: feedback.received_at },
+          duplicate,
+        })
+      }
       if (path === '/support/tickets' && request.method === 'POST') {
         const { ticket, duplicate } = store.openTicket(account, validateNewTicket(await readJson(request)))
         const presented = present(ticket)
@@ -240,9 +262,9 @@ export function createApp({ store = new SupportStore(), baseUrl }) {
   })
 }
 
-// The MCP tools get this checking from their zod schemas. The REST endpoint does the minimum by hand: use your own
+// The MCP tools get this checking from their zod schemas. The REST endpoints do the minimum by hand: use your own
 // API's validation in a real product.
-function validateNewTicket(input) {
+function validateReport(input) {
   const text = (name, min, max, required) => {
     const value = input[name]
     if (value === undefined && !required) return
@@ -254,7 +276,9 @@ function validateNewTicket(input) {
   if (input.impact !== undefined && !IMPACTS.includes(input.impact)) {
     throw new SupportError('invalid', `impact must be one of: ${IMPACTS.join(', ')}.`)
   }
-  text('title', 3, 200, true)
+  if (input.source !== undefined && !['agent', 'user'].includes(input.source)) {
+    throw new SupportError('invalid', 'source must be agent or user.')
+  }
   text('description', 1, 4000, true)
   text('task', 0, 200)
   text('tool', 0, 100)
@@ -267,6 +291,14 @@ function validateNewTicket(input) {
     if (!Array.isArray(ids) || ids.length > 10 || ids.some((value) => typeof value !== 'string' || value.length > 200)) {
       throw new SupportError('invalid', 'request_ids must be up to 10 strings.')
     }
+  }
+  return input
+}
+
+function validateNewTicket(input) {
+  validateReport(input)
+  if (typeof input.title !== 'string' || input.title.length < 3 || input.title.length > 200) {
+    throw new SupportError('invalid', 'title must be 3 to 200 characters.')
   }
   return input
 }
