@@ -157,7 +157,7 @@ These are where an implementation goes wrong in ways that hurt people.
 - [ ] Feedback, a new ticket and a reply are marked as writes; help, list and get as read-only.
 - [ ] The ticket and reply descriptions tell the agent to show the user what it would send and get their yes.
 - [ ] Feedback and tickets record `source` (`agent` by default, `user` when the user asked for it).
-- [ ] The team can turn a piece of feedback into a ticket, which then carries `from_feedback` and shows as an unread
+- [ ] The team can turn a piece of feedback into a ticket, which then carries `feedback_id` and shows as an unread
       reply in the list.
 - [ ] If built: `support_get_help` answers from documentation with sources, says when it has no answer, opens no
       ticket, and can reach nothing but documentation.
