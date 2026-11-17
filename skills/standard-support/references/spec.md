@@ -1,42 +1,30 @@
 # Standard Support (draft 0.3)
 
-Three things a customer's AI agent can do when something goes wrong with your product, each with its own tool and
-its own rules:
+Three things a customer's AI agent can do when something goes wrong with your product: ask for help, send
+feedback, or open a ticket.
 
-| What the agent does  | Tool                    | Who answers                  | Does the agent ask the user first? |
-| -------------------- | ----------------------- | ---------------------------- | ---------------------------------- |
-| **Asks for help**    | `support_get_help`      | Your documentation, at once  | No                                 |
-| **Sends feedback**   | `support_send_feedback` | Nobody. It is one-way        | No. It tells them afterwards       |
-| **Opens a ticket**   | `support_open_ticket`   | A person on your team        | Yes, unless they asked for it      |
+| Tool                         | What the agent does with it                                             | Asks the user first?          | Level    |
+| ---------------------------- | ----------------------------------------------------------------------- | ----------------------------- | -------- |
+| `support_get_help`           | Asks a question, answered at once from your documentation               | No                            | optional |
+| `support_send_feedback`      | Reports something that got in the way. One-way: nobody replies          | No. It tells them afterwards  | 1        |
+| `support_open_ticket`        | Opens a ticket when the user needs an answer. A person on your team replies | Yes, unless they asked for it | 2    |
+| `support_list_tickets`       | Lists this account's tickets                                            | No                            | 2        |
+| `support_get_ticket`         | Reads one ticket and its messages                                       | No                            | 2        |
+| `support_reply_to_ticket`    | Adds a message; says whether it's fixed or still broken                 | Yes                           | 2        |
+| a `watch_url` on each ticket | A status URL that a background script polls for changes                 |                               | 3        |
 
-A ticket is a conversation, so it comes with three more tools and a status URL:
+You can stop at any level. Level 1 alone is the one-way feedback tool that many MCP servers gained during 2026
+under different names (`submit_feedback`, `give_feedback`, `send_feedback`, `report_issue`). Help can go with any
+level.
 
-| What                         | What it does                                           |
-| ---------------------------- | ------------------------------------------------------ |
-| `support_list_tickets`       | List this account's tickets                            |
-| `support_get_ticket`         | Read one ticket and its messages                       |
-| `support_reply_to_ticket`    | Add a message; say whether it's fixed or still broken  |
-| a `watch_url` on each ticket | A status URL a background script can poll for changes  |
-
-You don't need all of it:
-
-- **Level 1** is `support_send_feedback` alone. This is the one-way feedback tool that many MCP servers gained
-  during 2026 under different names (`submit_feedback`, `give_feedback`, `send_feedback`, `report_issue`).
-- **Level 2** adds the four ticket tools.
-- **Level 3** adds the `watch_url`.
-- **Help** (`support_get_help`) is optional and can go with any level.
+Help, feedback and tickets are kept apart on purpose, because they are safe in different ways. Help is a question
+answered from your own documentation: nothing private goes in and no person is involved, so you can automate it end
+to end. Feedback goes one way: nothing comes back to the customer's agent, and nobody on your side is on the hook
+to reply, so you can invite a lot of it. A ticket carries a customer's problem to your team and your answer back:
+a person agreed to send it, and a person on your side should at least be watching what happens to it.
 
 It is written with developer tools in mind, where an AI coding agent builds an integration with a product, but
 it works for any product with an MCP server or an API and any AI tool that uses one.
-
-The three are kept apart on purpose, because they are safe in different ways:
-
-- **Help** is a question answered from your own documentation. Nothing private goes in and no person is involved,
-  so you can automate it end to end.
-- **Feedback** goes one way. Nothing comes back to the customer's agent, so there is nothing for it to be steered
-  by, and nobody on your side is on the hook to reply. That makes it safe to invite a lot of it.
-- **Tickets** carry a customer's problem to your team and your answer back. A person agreed to send each one, and
-  a person on your side should at least be watching what happens to it.
 
 This is a design to copy, not a protocol to conform to. Each decision below comes with its reason, so you can
 disagree with one and keep the rest.
