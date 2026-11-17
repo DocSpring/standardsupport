@@ -1,4 +1,4 @@
-# Standard Support (draft 0.3)
+# Standard Support (draft 0.4)
 
 Three things a customer's AI agent can do when something goes wrong with your product: ask for help, send
 feedback, or open a ticket.
@@ -73,6 +73,7 @@ documentation, a bug the agent worked around, an idea.
 
 | Field             | Type           | Required | Notes                                                                                       |
 | ----------------- | -------------- | -------- | ------------------------------------------------------------------------------------------- |
+| `title`           | string, 3-200  | yes      | One line, written like an issue title                                                       |
 | `kind`            | enum           | yes      | `bug`, `crash`, `wrong_result`, `confusing`, `missing_feature`, `docs`, `question`, `other` |
 | `description`     | string, 1-4000 | yes      | What was tried, what was expected, what happened                                            |
 | `impact`          | enum           | no       | `blocked`, `worked_around`, `friction`                                                      |
@@ -105,24 +106,24 @@ the way to get an answer) and `duplicate`.
   it, at the address in your own database. No agent is involved.
 - **When it needs a conversation, make it a ticket.** Your team can turn a piece of feedback into a ticket on the
   same account, with your message as its first reply. It then shows up in `support_list_tickets` as an unread
-  reply, under every rule that applies to tickets. The ticket carries `from_feedback`, the feedback's ID.
+  reply, under every rule that applies to tickets. The ticket keeps the feedback's title and fields, and carries
+  `from_feedback`, the feedback's ID.
 - **Send it somewhere else.** Feedback goes to its own queue (a channel, a triage list, your analytics), not to the
   inbox where people answer tickets.
 
 ### `support_open_ticket`
 
-For when the user is blocked, got a wrong result or needs an answer. It takes every field of
-`support_send_feedback`, plus:
-
-| Field   | Type          | Required | Notes                                 |
-| ------- | ------------- | -------- | ------------------------------------- |
-| `title` | string, 3-200 | yes      | One line, written like an issue title |
+For when the user is blocked, got a wrong result or needs an answer. It takes the same fields as
+`support_send_feedback`: one schema for both, so the two tools differ only in what happens next.
 
 Returns `ticket` (the object below, without messages), `notifications` (`{email, watch}`, so the agent can tell the
 user how the reply will arrive; the email address is masked) and `duplicate` (true when the idempotency key matched).
 
 Why these fields, for feedback and tickets alike:
 
+- **`title`** is what the customer's agent sees in `support_list_tickets` and what your team sees in a
+  notification or a queue. Feedback has one too, so both tools take the same input and a piece of feedback can
+  become a ticket without anyone writing a title for it.
 - **`kind`, `task`, `impact`, `description`, `error` and `suggestion`** already appear with these meanings in
   several vendors' feedback tools, so agents have seen them.
 - **`impact` by outcome, not severity.** An agent can say truthfully whether it was blocked, worked around the
@@ -327,6 +328,8 @@ You are free to add fields and kinds at any level. Clients ignore what they don'
 
 ## Changes
 
+- **0.4, 17 November 2026.** `support_send_feedback` now takes `title`, so feedback and tickets have the same
+  fields.
 - **0.3, 17 November 2026.** Feedback and tickets are now separate. `support_send_feedback` is new: one-way, sent
   without asking, with an ID and no status. `support_open_ticket` is for when the user is blocked or needs an
   answer, and still asks first. Level 1 is now the feedback tool, and tickets are level 2. A team can turn a piece

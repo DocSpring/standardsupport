@@ -74,7 +74,7 @@ Work in this order. Each step is usable by itself.
 4. **The nudge.** Add the instruction sentences to the server's `instructions`, and end every error result of the
    product's own tools with its request ID and the line that says where to take it. Without this, agents rarely
    speak up. Leave out the sentences for tools you didn't build.
-5. **`support_open_ticket`.** The same fields plus `title`. Rate limit new tickets (20 a day). Announce each new
+5. **`support_open_ticket`.** The same fields as feedback. Rate limit new tickets (20 a day). Announce each new
    ticket where the team works. Mark it as a write.
 6. **`support_list_tickets`, `support_get_ticket`, `support_reply_to_ticket`.** Every one checks that the ticket
    belongs to the caller's account, and answers a missing ticket and someone else's ticket identically. The list

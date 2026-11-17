@@ -124,6 +124,7 @@ test('an agent asks for help first, and the answer saves a ticket when the docum
 test('feedback is one-way: it gets an ID, opens no ticket, and the team can turn it into one to answer', async () => {
   const alice = await connect('demo-token-alice')
   const sent = await call(alice, 'support_send_feedback', {
+    title: 'The error for an unknown order reads like an outage',
     kind: 'confusing',
     description: 'The error for an unknown order says "could not be loaded", which reads like an outage. token: abcdef123456',
     impact: 'friction',
@@ -135,6 +136,7 @@ test('feedback is one-way: it gets an ID, opens no ticket, and the team can turn
   assert.match(sent.follow_up, /Nobody replies to feedback/)
   assert.equal(sent.duplicate, false)
   assert.equal((await call(alice, 'support_send_feedback', {
+    title: 'The error for an unknown order reads like an outage',
     kind: 'confusing',
     description: 'Again.',
     idempotency_key: 'fb-1',
@@ -153,13 +155,13 @@ test('feedback is one-way: it gets an ID, opens no ticket, and the team can turn
   // When the team wants to answer, the feedback becomes a ticket with their message as an unread reply. A later
   // session finds it in the ordinary list.
   const promoted = await team(`/team/feedback/${sent.feedback.id}/promote`, {
-    title: 'Clearer error for an order number that does not exist',
     body: 'Thanks. The error now says the order number does not exist.',
   })
   assert.equal(promoted.status, 201)
   const tickets = (await mine()).tickets
   assert.equal(tickets.length, 1)
   assert.equal(tickets[0].from_feedback, sent.feedback.id)
+  assert.equal(tickets[0].title, 'The error for an unknown order reads like an outage')
   assert.equal(tickets[0].unread_count, 1)
   const read = await call(alice, 'support_get_ticket', { ticket_id: tickets[0].id })
   assert.deepEqual(read.messages.map((message: Loose) => message.author), ['reporter', 'team'])
@@ -168,7 +170,7 @@ test('feedback is one-way: it gets an ID, opens no ticket, and the team can turn
   const overHttp = await fetch(`${baseUrl}/support/feedback`, {
     method: 'POST',
     headers: { authorization: 'Bearer demo-token-bob', 'content-type': 'application/json' },
-    body: JSON.stringify({ kind: 'docs', description: 'The rate limit page has no example.' }),
+    body: JSON.stringify({ kind: 'docs', title: 'No rate limit example', description: 'The rate limit page has no example.' }),
   })
   assert.equal(overHttp.status, 201)
   assert.match((await overHttp.json()).feedback.id, /^fb_/)

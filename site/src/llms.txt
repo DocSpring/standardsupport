@@ -1,6 +1,6 @@
 # Standard Support
 
-> A convention for how AI agents ask for support (draft 0.3). Three things an agent can do: ask for help
+> A convention for how AI agents ask for support (draft 0.4). Three things an agent can do: ask for help
 > (support_get_help, answered from the product's documentation), send feedback (support_send_feedback, one-way), and
 > open a ticket with the product's team (support_open_ticket, support_list_tickets, support_get_ticket,
 > support_reply_to_ticket), with a watch URL per ticket so a later session can pick up the reply. A design to copy,

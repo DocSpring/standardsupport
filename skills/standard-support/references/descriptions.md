@@ -70,6 +70,7 @@ The result carries the same `follow_up` line every time:
 
 | Field | Description |
 | ----- | ----------- |
+| `title` | One line, written like an issue title. |
 | `kind` | What kind of problem this is. |
 | `description` | What you tried, what you expected and what happened. |
 | `impact` | blocked: the task could not be done. worked_around: done another way. friction: only slower. |
@@ -94,11 +95,7 @@ The result carries the same `follow_up` line every time:
 > on the ticket: read replies with support_get_ticket. If this call fails, carry on with the task and do not retry.
 > Afterwards, tell the user how the reply will arrive.
 
-It takes the same fields as feedback, plus:
-
-| Field | Description |
-| ----- | ----------- |
-| `title` | One line, written like an issue title. |
+It takes the same fields as feedback.
 
 ## `support_list_tickets`
 

@@ -53,6 +53,7 @@ export interface AgentInfo {
 
 // What the agent sends with a piece of feedback or a new ticket.
 export interface ReportInput {
+  title: string
   kind: Kind
   description: string
   category?: string
@@ -69,9 +70,8 @@ export interface ReportInput {
   idempotency_key?: string
 }
 
-export interface TicketInput extends ReportInput {
-  title: string
-}
+// A ticket takes the same fields as feedback.
+export type TicketInput = ReportInput
 
 // The fields a piece of feedback and a ticket share once stored.
 interface Report {
@@ -91,6 +91,7 @@ interface Report {
 export interface Feedback extends Report {
   id: string
   account_id: string
+  title: string
   description: string
   context: Context
   received_at: string
@@ -211,6 +212,7 @@ export class SupportStore {
     const feedback: Feedback = {
       id: id('fb'),
       account_id: account.id,
+      title: input.title,
       description: scrub(input.description),
       ...this.#report(input),
       context,
@@ -323,14 +325,15 @@ export class SupportStore {
   // How feedback gets an answer when the team wants to give one: it becomes a ticket on the same account, with the
   // team's message as an unread reply. The customer's next agent finds it in support_list_tickets, under the same
   // rules as any other ticket. Nothing comes back through the feedback tool itself.
-  promoteFeedback(feedbackId: string, { title, body }: { title: string; body?: string }): { ticket: Ticket } {
+  promoteFeedback(feedbackId: string, { title, body }: { title?: string; body?: string }): { ticket: Ticket } {
     const feedback = this.feedback.get(feedbackId)
     if (!feedback) throw new SupportError('not_found', `Feedback ${feedbackId} was not found.`)
     const existing = feedback.ticket_id ? this.tickets.get(feedback.ticket_id) : undefined
     if (existing) return { ticket: existing }
 
-    const { id: _id, account_id, description, context, received_at: _received, ticket_id: _ticket, ...report } = feedback
-    const ticket = this.#createTicket(account_id, title, description, report, context, feedback.id)
+    const { id: _id, account_id, title: sent, description, context, received_at: _received, ticket_id: _ticket, ...report } =
+      feedback
+    const ticket = this.#createTicket(account_id, title ?? sent, description, report, context, feedback.id)
     if (body) this.#addMessage(ticket, 'team', body)
     feedback.ticket_id = ticket.id
     return { ticket }

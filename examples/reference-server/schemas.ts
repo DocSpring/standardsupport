@@ -14,6 +14,7 @@ export const helpInput = {
 // What a piece of feedback and a ticket both carry.
 export function reportInput(product: string) {
   return {
+    title: z.string().min(3).max(200).describe('One line, written like an issue title.'),
     kind: z.enum(KINDS).describe('What kind of problem this is.'),
     description: z.string().min(1).max(4000).describe('What you tried, what you expected and what happened.'),
     impact: z
@@ -56,12 +57,8 @@ export function reportInput(product: string) {
   }
 }
 
-export function ticketInput(product: string) {
-  return {
-    title: z.string().min(3).max(200).describe('One line, written like an issue title.'),
-    ...reportInput(product),
-  }
-}
+// A ticket takes the same fields as feedback.
+export const ticketInput = reportInput
 
 export const listInput = {
   status: z
@@ -93,6 +90,7 @@ export const teamReplyInput = {
 }
 
 export const promoteInput = {
-  title: z.string().min(3).max(200),
+  // Defaults to the feedback's own title.
+  title: z.string().min(3).max(200).optional(),
   body: z.string().min(1).max(4000).optional(),
 }
