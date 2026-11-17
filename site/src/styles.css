@@ -120,7 +120,7 @@ body {
 }
 
 .page {
-  max-width: 46rem;
+  max-width: 54rem;
   margin-inline: auto;
   padding: var(--space-lg) clamp(1rem, 5vw, 2rem) var(--space-xl);
 }
@@ -313,7 +313,8 @@ th {
   color: var(--color-muted);
   white-space: nowrap;
 }
-td:first-child code {
+/* A tool or field name never breaks across lines, whichever column it is in. */
+td code {
   white-space: nowrap;
 }
 
@@ -333,4 +334,9 @@ footer {
 /* The note under the adopters table ("Nobody yet...") is an aside, not part of the list. */
 #adopters .table-scroll + p {
   color: var(--color-muted);
+}
+
+/* In a four-column table the second column is a tool name or a type: short, and easier to scan on one line. */
+td:nth-child(2):nth-last-child(3) {
+  white-space: nowrap;
 }
