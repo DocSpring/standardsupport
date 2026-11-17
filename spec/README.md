@@ -17,7 +17,7 @@ You can stop at any level. Level 1 alone is the one-way feedback tool that many 
 under different names (`submit_feedback`, `give_feedback`, `send_feedback`, `report_issue`). Help can go with any
 level.
 
-Help, feedback and tickets are kept apart on purpose, because they are safe in different ways. Help is a question
+Help, feedback and tickets are kept apart on purpose, because they each have their own risks. Help is a question
 answered from your own documentation: nothing private goes in and no person is involved, so you can automate it end
 to end. Feedback goes one way: nothing comes back to the customer's agent, and nobody on your side is on the hook
 to reply, so you can invite a lot of it. A ticket carries a customer's problem to your team and your answer back:
