@@ -25,7 +25,8 @@ Nothing breaks if you implement this differently. Agents read each tool's descri
 everyone to agree. You can adopt what works for your product and extend it however you like.
 
 **Status: draft 0.3, published early for feedback.** Names and fields may still change. Nobody has shipped it yet;
-DocSpring's implementation is being built.
+DocSpring's implementation is being built. What changed between drafts is in the spec's
+[Changes](spec/README.md#changes) section.
 
 ## What's here
 
@@ -47,8 +48,14 @@ Or read the [spec](spec/README.md) and the [reference server](examples/reference
 
 ## Feedback
 
-This is a draft, and we want to know what is wrong with it, what is missing and what you would do differently. Open
-an issue here, or write to hello@standardsupport.dev.
+This is a draft, and we want to know what is wrong with it, what is missing and what you would do differently:
+
+- Open an issue here
+- Reply in the [Hacker News thread](https://news.ycombinator.com/item?id=50524768)
+- Mention [@DocSpring](https://x.com/DocSpring) on X
+- Write to hello@standardsupport.dev
+
+Changes that came from feedback are credited in the spec's [Changes](spec/README.md#changes) section.
 
 ## Working on this repo
 
