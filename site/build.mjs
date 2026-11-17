@@ -32,7 +32,9 @@ function render(markdown, { shift }) {
       seen.add(id)
       return `<h${level} id="${id}">${inner}</h${level}>`
     })
-    .replaceAll('<table>', '<div class="table-scroll"><table>')
+    // A table whose second column is headed "Type" lists fields.
+    .replace(/<table>(?=\s*<thead>\s*<tr>\s*<th>[^<]*<\/th>\s*<th>Type<\/th>)/g, '<table class="fields">')
+    .replace(/<table( class="fields")?>/g, '<div class="table-scroll"><table$1>')
     .replaceAll('</table>', '</table></div>')
 }
 

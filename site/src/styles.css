@@ -336,7 +336,7 @@ footer {
   color: var(--color-muted);
 }
 
-/* In a four-column table the second column is a tool name or a type: short, and easier to scan on one line. */
-td:nth-child(2):nth-last-child(3) {
+/* In a table of fields (the build marks them), the type column is short and easier to scan on one line. */
+.fields td:nth-child(2) {
   white-space: nowrap;
 }
