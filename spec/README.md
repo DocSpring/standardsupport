@@ -122,9 +122,6 @@ user how the reply will arrive; the email address is masked) and `duplicate` (tr
 
 Why these fields, for feedback and tickets alike:
 
-- **`title`** is what the customer's agent sees in `support_list_tickets` and what your team sees in a
-  notification or a queue. Feedback has one too, so both tools take the same input and a piece of feedback can
-  become a ticket without anyone writing a title for it.
 - **`kind`, `task`, `impact`, `description`, `error` and `suggestion`** already appear with these meanings in
   several vendors' feedback tools, so agents have seen them.
 - **`impact` by outcome, not severity.** An agent can say truthfully whether it was blocked, worked around the
