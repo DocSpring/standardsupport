@@ -90,7 +90,9 @@ Work in this order. Each step is usable by itself.
 10. **`support_get_help`**, if the user wants it. It takes a question and returns an answer with its sources from
     the product's documentation and known issues, or says it has none, and always ends by pointing at feedback and
     tickets. Read-only, no ticket, no sign-in needed. Whatever answers must see only the question and public
-    documentation.
+    documentation. Build it one of two ways: a search over the documentation with vector embeddings that returns
+    the best-matching passages, or the same search with a model writing an answer from what it finds. Use the
+    product's existing docs search if it has one, and prefer the plain search unless the user asks for more.
 11. **Say so.** Advertise `dev.standardsupport/support` under `capabilities.extensions` with the level reached, and
     `help: true` if you built the help tool.
 12. **Tests** for each rule in the checklist below.

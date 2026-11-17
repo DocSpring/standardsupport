@@ -56,6 +56,10 @@ the agent to send feedback or offer a ticket if the answer didn't solve the prob
   to than "let your agent open tickets".
 - **It opens no ticket and reaches no person**, so the agent doesn't ask the user first, and the tool is marked
   read-only. You can log the questions: they show you what your documentation is missing.
+- **There are two ways to build it.** The simple one is a search: index your documentation with vector embeddings
+  and return the passages that best match the question, with their links. The fuller one puts a model on top: it
+  retrieves the same passages and writes an answer from them. Start with the search. It can't say anything your
+  documentation doesn't, it costs almost nothing to run, and an agent is good at reading passages for itself.
 - **It answers from documentation and known issues only.** Whatever produces the answer, a search or an agent of
   yours, sees the question and public documentation and nothing else: no account data, no credentials, no tools.
   That is what makes it safe to leave unattended (see Safety rules).
