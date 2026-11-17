@@ -114,7 +114,8 @@ the way to get an answer) and `duplicate`.
 ### `support_open_ticket`
 
 For when the user is blocked, got a wrong result or needs an answer. It takes the same fields as
-`support_send_feedback`: one schema for both, so the two tools differ only in what happens next.
+`support_send_feedback`. The same fields for both, so you can keep them in one table and turn feedback into a
+ticket without rewriting it.
 
 Returns `ticket` (the object below, without messages), `notifications` (`{email, watch}`, so the agent can tell the
 user how the reply will arrive; the email address is masked) and `duplicate` (true when the idempotency key matched).
