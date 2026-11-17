@@ -1,6 +1,6 @@
 # Standard Support
 
-A convention for support from AI agents. Let a customer's AI agent ask for help, send feedback, or open a ticket
+A convention for how AI agents ask for support. Let a customer's AI agent ask for help, send feedback, or open a ticket
 with your team and pick up the reply, even in a later session.
 
 **Read it at [standardsupport.dev](https://standardsupport.dev).** The whole thing is on one page: an example, why,
