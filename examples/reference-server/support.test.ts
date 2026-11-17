@@ -160,7 +160,7 @@ test('feedback is one-way: it gets an ID, opens no ticket, and the team can turn
   assert.equal(promoted.status, 201)
   const tickets = (await mine()).tickets
   assert.equal(tickets.length, 1)
-  assert.equal(tickets[0].feedback_id, sent.feedback.id)
+  assert.equal(tickets[0].from_feedback_id, sent.feedback.id)
   assert.equal(tickets[0].title, 'The error for an unknown order reads like an outage')
   assert.equal(tickets[0].unread_count, 1)
   const read = await call(alice, 'support_get_ticket', { ticket_id: tickets[0].id })

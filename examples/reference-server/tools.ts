@@ -45,7 +45,7 @@ const ticketShape = {
   suggestion: z.string().optional(),
   session: z.string().optional(),
   source: z.enum(['agent', 'user']),
-  feedback_id: z.string().optional(),
+  from_feedback_id: z.string().optional(),
   created_at: z.string(),
   updated_at: z.string(),
   unread_count: z.number().int(),

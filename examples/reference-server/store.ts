@@ -116,7 +116,7 @@ export interface Ticket extends Report {
   status: Status
   resolution?: Resolution
   // The feedback this ticket was made from, when the team turned one into a ticket.
-  feedback_id?: string
+  from_feedback_id?: string
   context: Context
   created_at: string
   updated_at: string
@@ -387,7 +387,7 @@ export class SupportStore {
     description: string,
     report: Report,
     context: Context,
-    feedbackId?: string,
+    fromFeedbackId?: string,
   ): Ticket {
     const timestamp = this.now().toISOString()
     const ticket: Ticket = {
@@ -396,7 +396,7 @@ export class SupportStore {
       title,
       status: 'open',
       ...report,
-      feedback_id: feedbackId,
+      from_feedback_id: fromFeedbackId,
       // Filled in by the server.
       context,
       created_at: timestamp,
@@ -453,7 +453,7 @@ export function presentTicket(ticket: Ticket, { baseUrl }: { baseUrl: string }) 
     suggestion: ticket.suggestion,
     session: ticket.session,
     source: ticket.source,
-    feedback_id: ticket.feedback_id,
+    from_feedback_id: ticket.from_feedback_id,
     created_at: ticket.created_at,
     updated_at: ticket.updated_at,
     unread_count: unreadCount(ticket),

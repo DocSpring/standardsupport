@@ -107,7 +107,7 @@ the way to get an answer) and `duplicate`.
 - **When it needs a conversation, make it a ticket.** Your team can turn a piece of feedback into a ticket on the
   same account, with your message as its first reply. It then shows up in `support_list_tickets` as an unread
   reply, under every rule that applies to tickets. The ticket keeps the feedback's title and fields, and carries
-  `feedback_id`, the feedback's ID.
+  `from_feedback_id`, the feedback's ID.
 - **Send it somewhere else.** Feedback goes to its own queue (a channel, a triage list, your analytics), not to the
   inbox where people answer tickets.
 
@@ -161,7 +161,7 @@ reopen a fixed ticket.
 ### Ticket and message
 
 Ticket: `id` (string, ≤64), `kind`, `category`, `title`, `status`, `resolution`, `impact`, `task`, `request_ids`,
-`tool`, `error`, `suggestion`, `session`, `source`, `feedback_id` (when your team made it from a piece of
+`tool`, `error`, `suggestion`, `session`, `source`, `from_feedback_id` (when your team made it from a piece of
 feedback), `created_at`, `updated_at`, `unread_count` (the team's messages that nobody on the account has read yet),
 `watch_url` (level 3), `url` (an optional page a person can open).
 
@@ -325,7 +325,7 @@ You are free to add fields and kinds at any level. Clients ignore what they don'
 ## Changes
 
 - **0.4, 17 November 2026.** `support_send_feedback` now takes `title`, so feedback and tickets have the same
-  fields. On a ticket, `from_feedback` is now `feedback_id`.
+  fields. On a ticket, `from_feedback` is now `from_feedback_id`.
 - **0.3, 17 November 2026.** Feedback and tickets are now separate. `support_send_feedback` is new: one-way, sent
   without asking, with an ID and no status. `support_open_ticket` is for when the user is blocked or needs an
   answer, and still asks first. Level 1 is now the feedback tool, and tickets are level 2. A team can turn a piece
