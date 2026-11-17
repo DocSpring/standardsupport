@@ -117,7 +117,7 @@ For when the user is blocked, got a wrong result or needs an answer. It takes th
 `support_send_feedback`. The same fields for both, so you can keep them in one table and turn feedback into a
 ticket without rewriting it.
 
-Returns `ticket` (the object below, without messages), `notifications` (`{email, watch}`, so the agent can tell the
+Returns `ticket` ([the object below](#ticket-and-message), without messages), `notifications` (`{email, watch}`, so the agent can tell the
 user how the reply will arrive; the email address is masked) and `duplicate` (true when the idempotency key matched).
 
 Why these fields, for feedback and tickets alike:
