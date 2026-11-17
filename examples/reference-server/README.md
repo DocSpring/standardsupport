@@ -1,6 +1,6 @@
 # Reference server
 
-A small made-up product, "Acme Orders", with Standard Support added. About 1,100 lines of JavaScript with no
+A small made-up product, "Acme Orders", with Standard Support added. About 1,000 lines of JavaScript with no
 framework, meant to be read and copied from.
 
 | File              | What's in it                                                                              |
