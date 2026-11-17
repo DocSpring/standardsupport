@@ -133,8 +133,6 @@ Why these fields, for feedback and tickets alike:
 - **`idempotency_key`** because agents retry.
 - **`session`** because one customer may have a dozen agents working at once, and agents have no stable identity
   to give. A label they choose is enough to sort by.
-- **The same fields for both**, so you can keep them in one table and turn feedback into a ticket without
-  rewriting it.
 
 Fill in what your server already knows, and don't ask the agent for it: the account and user, the OAuth client ID,
 the client's name and version, your server's version. You may attach the account's last few tool calls with their
