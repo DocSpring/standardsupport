@@ -9,4 +9,4 @@
 - [The whole site as Markdown](https://standardsupport.dev/index.md): the example, why, the spec, questions and adopters
 - [The spec](https://standardsupport.dev/spec.md): every tool, field, status and rule, with its reason
 - [The agent skill](https://github.com/DocSpring/standardsupport/tree/main/skills/standard-support): builds it into an existing MCP server
-- [The reference server](https://github.com/DocSpring/standardsupport/tree/main/examples/reference-server): a small working example in JavaScript
+- [The reference server](https://github.com/DocSpring/standardsupport/tree/main/examples/reference-server): a small working example in TypeScript

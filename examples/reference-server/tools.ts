@@ -1,9 +1,25 @@
 // The four Standard Support tools, registered on an MCP server. Everything a vendor would change is in `options`:
 // the product's name, how to find the signed-in account, and where the watch URL lives.
 
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js'
+import type { CallToolResult, ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 
-import { IMPACTS, KINDS, LIST_STATUSES, RESOLUTIONS, STATUSES, SupportError, maskEmail, presentMessage, presentTicket } from './store.js'
+import type { Help, HelpQuestion } from './help.ts'
+import { helpInput, listInput, replyInput, reportInput, ticketInput } from './schemas.ts'
+
+import {
+  IMPACTS,
+  KINDS,
+  RESOLUTIONS,
+  STATUSES,
+  SupportError,
+  maskEmail,
+  presentMessage,
+  presentTicket,
+} from './store.ts'
+import type { Account, Context, SupportStore, Ticket } from './store.ts'
 
 const WATCH_HINT =
   'To be told when the team replies, poll this URL in the background (no more often than min_interval_seconds) ' +
@@ -48,7 +64,14 @@ const messageSchema = z.object({
 // Agents rarely report unprompted, and clients that load tools lazily never show them a tool's description.
 // Leave out what the server doesn't have: { help: false } without support_get_help, { tickets: false } for a
 // server that only takes feedback.
-export function supportInstructions(product, { help = false, tickets = true } = {}) {
+export interface Has {
+  // The server has support_get_help.
+  help?: boolean
+  // The server takes tickets as well as feedback.
+  tickets?: boolean
+}
+
+export function supportInstructions(product: string, { help = false, tickets = true }: Has = {}): string {
   return [
     help && `When a tool from ${product} fails or you aren't sure how to do something, ask support_get_help first.`,
     `When something about ${product} got in your way (a confusing error, a missing feature, a bug you worked ` +
@@ -61,7 +84,7 @@ export function supportInstructions(product, { help = false, tickets = true } = 
     .join(' ')
 }
 
-export function errorNudge(product, requestId, { help = false, tickets = true } = {}) {
+export function errorNudge(product: string, requestId: string, { help = false, tickets = true }: Has = {}): string {
   return [
     `Request ID: ${requestId}.`,
     help && 'For help with this error, call support_get_help.',
@@ -84,24 +107,33 @@ const FEEDBACK_FOLLOW_UP =
 const HELP_NO_ANSWER = "The documentation doesn't answer this."
 
 // The answer to a question, shaped the same for the MCP tool and the HTTP endpoint.
-export async function getHelp(help, input) {
+export async function getHelp(help: Help, input: HelpQuestion) {
   const found = await help(input)
   return found
     ? { answered: true, answer: found.answer, sources: found.sources ?? [], next: HELP_NEXT }
     : { answered: false, answer: HELP_NO_ANSWER, sources: [], next: HELP_NEXT }
 }
 
-// options.product: the product's name, as agents and users know it.
-// options.baseUrl: where this server is reached, for the watch URL.
-// options.account(extra): the signed-in account, { id, email }, from the MCP request. Return undefined if nobody is
-//   signed in.
-// options.context(extra): what the server knows about the caller (client name and version, OAuth client ID).
-// options.help({ question, tool, error }): optional. Answers a question from your documentation and known issues,
-//   returning { answer, sources } or undefined. With it, the server also gets support_get_help.
-export function registerSupportTools(server, store, options) {
+type Extra = RequestHandlerExtra<ServerRequest, ServerNotification>
+
+export interface SupportOptions {
+  // The product's name, as agents and users know it.
+  product: string
+  // Where this server is reached, for the watch URL.
+  baseUrl: string
+  // The signed-in account, from the MCP request. Return undefined if nobody is signed in.
+  account: (extra: Extra) => Account | undefined
+  // What the server knows about the caller (client name and version, OAuth client ID).
+  context?: (extra: Extra) => Context
+  // Answers a question from your documentation and known issues. With it, the server also gets support_get_help.
+  help?: Help
+}
+
+export function registerSupportTools(server: McpServer, store: SupportStore, options: SupportOptions): void {
   const { product, baseUrl } = options
 
-  if (options.help) {
+  const help = options.help
+  if (help) {
     server.registerTool(
       'support_get_help',
       {
@@ -113,11 +145,7 @@ export function registerSupportTools(server, store, options) {
           "user first. Never include secrets, credentials or the user's data. If the answer doesn't solve the " +
           'problem, send it with support_send_feedback, or if the user is blocked, tell them and offer to open a ' +
           'ticket with support_open_ticket.',
-        inputSchema: {
-          question: z.string().min(3).max(2000).describe('What you want to know, in a sentence or two.'),
-          tool: z.string().max(100).optional().describe('The tool involved, if any.'),
-          error: z.string().max(4000).optional().describe('The exact error text, if any.'),
-        },
+        inputSchema: helpInput,
         outputSchema: {
           answered: z.boolean(),
           answer: z.string(),
@@ -126,59 +154,25 @@ export function registerSupportTools(server, store, options) {
         },
         annotations: { readOnlyHint: true, openWorldHint: false },
       },
-      async (input) => success(await getHelp(options.help, input)),
+      async (input) => success(await getHelp(help, input)),
     )
   }
 
-  const run = (handler) => async (input, extra) => {
-    const account = options.account(extra)
-    if (!account) return failure('Sign in first: support tickets belong to your account.')
-    try {
-      return success(await handler(account, input, extra))
-    } catch (error) {
-      if (!(error instanceof SupportError)) throw error
-      const retry = error.retry_after ? ` Try again after ${error.retry_after}.` : ''
-      return failure(`${error.message}${retry}`)
+  // Finds the signed-in account, runs the handler and turns the store's errors into tool errors.
+  const run =
+    <Input>(handler: (account: Account, input: Input, extra: Extra) => object) =>
+    async (input: Input, extra: Extra): Promise<CallToolResult> => {
+      const account = options.account(extra)
+      if (!account) return failure('Sign in first: support tickets belong to your account.')
+      try {
+        return success(await handler(account, input, extra))
+      } catch (error) {
+        if (!(error instanceof SupportError)) throw error
+        const retry = error.retry_after ? ` Try again after ${error.retry_after}.` : ''
+        return failure(`${error.message}${retry}`)
+      }
     }
-  }
-  const present = (ticket) => presentTicket(ticket, { baseUrl })
-
-  // What a piece of feedback and a ticket both carry.
-  const reportFields = {
-    kind: z.enum(KINDS).describe('What kind of problem this is.'),
-    description: z.string().min(1).max(4000).describe('What you tried, what you expected and what happened.'),
-    impact: z
-      .enum(IMPACTS)
-      .optional()
-      .describe('blocked: the task could not be done. worked_around: done another way. friction: only slower.'),
-    task: z.string().max(200).optional().describe('What the user asked you to do, in a short phrase.'),
-    request_ids: z
-      .array(z.string().max(200))
-      .max(10)
-      .optional()
-      .describe(`Request IDs from ${product}'s error messages or results.`),
-    tool: z.string().max(100).optional().describe('The tool involved.'),
-    error: z.string().max(4000).optional().describe('The exact error text.'),
-    suggestion: z.string().max(2000).optional().describe('What would have helped.'),
-    source: z
-      .enum(['agent', 'user'])
-      .optional()
-      .describe('user: the user asked you to send this. agent (default): you noticed the problem yourself.'),
-    session: z
-      .string()
-      .max(100)
-      .optional()
-      .describe('A label for the work you are doing, such as a session ID, a branch or a task name.'),
-    agent: z
-      .object({
-        name: z.string().max(100).optional(),
-        version: z.string().max(50).optional(),
-        model: z.string().max(100).optional(),
-      })
-      .optional()
-      .describe('The agent sending this.'),
-    idempotency_key: z.string().max(64).optional().describe('A retry with the same key returns the same record.'),
-  }
+  const present = (ticket: Ticket) => presentTicket(ticket, { baseUrl })
 
   server.registerTool(
     'support_send_feedback',
@@ -191,7 +185,7 @@ export function registerSupportTools(server, store, options) {
         'tell the user afterwards what you sent. If the user is blocked or needs an answer, use ' +
         `support_open_ticket instead. Only for ${product} itself, not for other tools or services. Never include ` +
         "secrets, credentials or the user's data. If this call fails, carry on with the task and do not retry.",
-      inputSchema: reportFields,
+      inputSchema: reportInput(product),
       outputSchema: {
         feedback: z.object({ id: z.string(), received_at: z.string() }),
         follow_up: z.string(),
@@ -224,10 +218,7 @@ export function registerSupportTools(server, store, options) {
         "include secrets, credentials or the user's data. The team replies on the ticket: read replies with " +
         'support_get_ticket. If this call fails, carry on with the task and do not retry. Afterwards, tell the ' +
         'user how the reply will arrive.',
-      inputSchema: {
-        title: z.string().min(3).max(200).describe('One line, written like an issue title.'),
-        ...reportFields,
-      },
+      inputSchema: ticketInput(product),
       outputSchema: {
         ticket: ticketSchema,
         notifications: z.object({
@@ -262,18 +253,7 @@ export function registerSupportTools(server, store, options) {
         'from the team that nobody on this account has read yet, including replies on tickets the team has ' +
         'resolved. The list covers every agent working for this account: pass session to see only the tickets ' +
         'opened with your label.',
-      inputSchema: {
-        status: z
-          .enum(LIST_STATUSES)
-          .optional()
-          .describe(
-            'open (default): not yet resolved or closed, plus any ticket with an unread reply. closed: the rest. all: every ticket.',
-          ),
-        session: z.string().max(100).optional().describe('Only tickets opened with this session label.'),
-        updated_since: z.string().datetime({ offset: true }).optional(),
-        limit: z.number().int().min(1).max(50).optional(),
-        cursor: z.string().max(100).optional().describe('next_cursor from the previous page.'),
-      },
+      inputSchema: listInput,
       outputSchema: { tickets: z.array(ticketSchema), next_cursor: z.string().optional() },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -313,15 +293,7 @@ export function registerSupportTools(server, store, options) {
         'more detail, or whether their fix worked. Show the user the message and get their yes before calling ' +
         'this. Set outcome to still_broken to reopen a resolved ticket. Never include secrets, credentials or the ' +
         "user's data.",
-      inputSchema: {
-        ticket_id: z.string().max(64),
-        body: z.string().min(1).max(4000),
-        outcome: z
-          .enum(['resolved', 'still_broken'])
-          .optional()
-          .describe('resolved: the problem is fixed, close the ticket. still_broken: it is not, reopen it.'),
-        idempotency_key: z.string().max(64).optional(),
-      },
+      inputSchema: { ticket_id: z.string().max(64), ...replyInput },
       outputSchema: { ticket: ticketSchema, message: messageSchema },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
@@ -333,11 +305,11 @@ export function registerSupportTools(server, store, options) {
 }
 
 // Structured for clients that read structuredContent, and the same thing as text for those that don't.
-function success(result) {
-  const clean = JSON.parse(JSON.stringify(result)) // drops undefined fields
+function success(result: object): CallToolResult {
+  const clean = JSON.parse(JSON.stringify(result)) as Record<string, unknown> // drops undefined fields
   return { structuredContent: clean, content: [{ type: 'text', text: JSON.stringify(clean, null, 2) }] }
 }
 
-function failure(message) {
+function failure(message: string): CallToolResult {
   return { isError: true, content: [{ type: 'text', text: message }] }
 }

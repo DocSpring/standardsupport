@@ -28,7 +28,7 @@ jobs:
         run: scripts/sync_skill_spec --check
       - name: Test the reference server
         working-directory: examples/reference-server
-        run: npm ci && npm test
+        run: npm ci && npm run typecheck && npm test
       - name: Build the site
         working-directory: site
         run: npm ci && npm run build

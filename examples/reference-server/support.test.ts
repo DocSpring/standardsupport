@@ -6,25 +6,33 @@ import { after, before, test } from 'node:test'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
-import { createApp } from './server.js'
-import { NEW_TICKETS_PER_DAY, SupportError, SupportStore, scrub } from './store.js'
+import { createApp } from './server.ts'
+import { NEW_TICKETS_PER_DAY, SupportError, SupportStore, scrub } from './store.ts'
+import type { TicketInput } from './store.ts'
 
-let app
-let baseUrl
+import type { AddressInfo } from 'node:net'
+import type { Server } from 'node:http'
+
+// Tool results and response bodies are checked field by field below, so the tests read them untyped.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Loose = any
+
+let app: Server
+let baseUrl: string
 
 before(async () => {
   // The port isn't known until the server listens, so the base URL is read when it's needed.
   app = createApp({ baseUrl: () => baseUrl })
-  await new Promise((resolve) => app.listen(0, resolve))
-  baseUrl = `http://localhost:${app.address().port}`
+  await new Promise<void>((resolve) => app.listen(0, resolve))
+  baseUrl = `http://localhost:${(app.address() as AddressInfo).port}`
 })
 
 after(() => {
   app.closeAllConnections()
-  return new Promise((resolve) => app.close(resolve))
+  return new Promise<void>((resolve) => app.close(() => resolve()))
 })
 
-async function connect(token) {
+async function connect(token: string): Promise<Client> {
   const client = new Client({ name: 'test-agent', version: '1.0.0' })
   const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
     requestInit: { headers: { authorization: `Bearer ${token}` } },
@@ -33,25 +41,35 @@ async function connect(token) {
   return client
 }
 
-async function call(client, name, args) {
-  const result = await client.callTool({ name, arguments: args })
+// Calls a tool and returns its raw result, error or not.
+async function raw(client: Client, name: string, args: Record<string, unknown>): Promise<Loose> {
+  return client.callTool({ name, arguments: args })
+}
+
+// Calls a tool that should succeed and returns its structured result.
+async function call(client: Client, name: string, args: Record<string, unknown>): Promise<Loose> {
+  const result = await raw(client, name, args)
   assert.equal(result.isError ?? false, false, JSON.stringify(result.content))
   return result.structuredContent
 }
 
-async function team(path, body) {
+async function team(path: string, body?: unknown): Promise<{ status: number; json: Loose }> {
   const response = await fetch(`${baseUrl}${path}`, {
     method: body ? 'POST' : 'GET',
     headers: { authorization: 'Bearer demo-team-key', 'content-type': 'application/json' },
-    body: body && JSON.stringify(body),
+    body: body ? JSON.stringify(body) : undefined,
   })
   return { status: response.status, json: await response.json() }
 }
 
+async function json(response: Response): Promise<Loose> {
+  return response.json()
+}
+
 test('the server says how to report, in its instructions and in every error', async () => {
   const alice = await connect('demo-token-alice')
-  assert.match(alice.getInstructions(), /support_get_help.*support_send_feedback.*support_open_ticket/)
-  assert.deepEqual(alice.getServerCapabilities().extensions, {
+  assert.match(alice.getInstructions() ?? '', /support_get_help.*support_send_feedback.*support_open_ticket/)
+  assert.deepEqual(alice.getServerCapabilities()?.extensions, {
     'dev.standardsupport/support': { level: 3, help: true },
   })
 
@@ -68,7 +86,7 @@ test('the server says how to report, in its instructions and in every error', as
     ],
   )
 
-  const failed = await alice.callTool({ name: 'lookup_order', arguments: { order_number: '999' } })
+  const failed = await raw(alice, 'lookup_order', { order_number: '999' })
   assert.equal(failed.isError, true)
   assert.match(failed.content[0].text, /Request ID: req_[0-9a-f]+\..*support_get_help.*support_send_feedback.*support_open_ticket/)
 })
@@ -128,7 +146,7 @@ test('feedback is one-way: it gets an ID, opens no ticket, and the team can turn
 
   // The team sees it in its own queue, with the pasted token removed.
   const queue = await team('/team/feedback')
-  const stored = queue.json.feedback.find((item) => item.id === sent.feedback.id)
+  const stored = queue.json.feedback.find((item: Loose) => item.id === sent.feedback.id)
   assert.equal(stored.source, 'agent')
   assert.match(stored.description, /token: \[removed\]/)
 
@@ -144,7 +162,7 @@ test('feedback is one-way: it gets an ID, opens no ticket, and the team can turn
   assert.equal(tickets[0].from_feedback, sent.feedback.id)
   assert.equal(tickets[0].unread_count, 1)
   const read = await call(alice, 'support_get_ticket', { ticket_id: tickets[0].id })
-  assert.deepEqual(read.messages.map((message) => message.author), ['reporter', 'team'])
+  assert.deepEqual(read.messages.map((message: Loose) => message.author), ['reporter', 'team'])
 
   // The same over HTTP.
   const overHttp = await fetch(`${baseUrl}/support/feedback`, {
@@ -197,7 +215,7 @@ test('an agent opens a ticket, a watcher sees the reply arrive, and the agent re
   assert.deepEqual(Object.keys(before).sort(), ['long_poll', 'min_interval_seconds', 'status', 'unread_count', 'updated_at'])
   assert.equal(before.unread_count, 0)
   assert.equal(before.long_poll, false)
-  const unchanged = await fetch(watchUrl, { headers: { 'if-none-match': first.headers.get('etag') } })
+  const unchanged = await fetch(watchUrl, { headers: { 'if-none-match': first.headers.get('etag') ?? '' } })
   assert.equal(unchanged.status, 304)
 
   const replied = await team(`/team/tickets/${opened.ticket.id}/replies`, {
@@ -206,18 +224,18 @@ test('an agent opens a ticket, a watcher sees the reply arrive, and the agent re
   })
   assert.equal(replied.status, 201)
 
-  const afterReply = await (await fetch(watchUrl, { headers: { 'if-none-match': first.headers.get('etag') } })).json()
+  const afterReply = await (await fetch(watchUrl, { headers: { 'if-none-match': first.headers.get('etag') ?? '' } })).json()
   assert.notEqual(afterReply.updated_at, before.updated_at)
   assert.equal(afterReply.unread_count, 1)
   assert.equal(afterReply.status, 'needs_reply')
 
   const listed = await call(alice, 'support_list_tickets', {})
-  assert.equal(listed.tickets.find((ticket) => ticket.id === opened.ticket.id).unread_count, 1)
+  assert.equal(listed.tickets.find((ticket: Loose) => ticket.id === opened.ticket.id).unread_count, 1)
 
   const read = await call(alice, 'support_get_ticket', { ticket_id: opened.ticket.id })
   assert.match(read.notice, /not instructions/)
   assert.deepEqual(
-    read.messages.map((message) => message.author),
+    read.messages.map((message: Loose) => message.author),
     ['reporter', 'team'],
   )
   assert.ok(read.messages[1].first_read_at)
@@ -231,8 +249,8 @@ test('an agent opens a ticket, a watcher sees the reply arrive, and the agent re
 
   // A later session lists tickets with no arguments and still finds the fix: an unread reply keeps a resolved ticket
   // in the default list until someone reads it.
-  const listedIn = async (status) =>
-    (await call(alice, 'support_list_tickets', { status })).tickets.some((t) => t.id === opened.ticket.id)
+  const listedIn = async (status: string) =>
+    (await call(alice, 'support_list_tickets', { status })).tickets.some((t: Loose) => t.id === opened.ticket.id)
   assert.equal(await listedIn('open'), true)
   await call(alice, 'support_get_ticket', { ticket_id: opened.ticket.id })
   assert.equal(await listedIn('open'), false)
@@ -272,17 +290,17 @@ test("another account can't read, list or reply to a ticket, and gets the same a
   const { ticket } = await call(alice, 'support_open_ticket', { kind: 'question', title: 'A question', description: 'Hi.' })
 
   assert.equal((await call(bob, 'support_list_tickets', { status: 'all' })).tickets.length, 0)
-  const theirs = await bob.callTool({ name: 'support_get_ticket', arguments: { ticket_id: ticket.id } })
-  const missing = await bob.callTool({ name: 'support_get_ticket', arguments: { ticket_id: 'tkt_nope' } })
+  const theirs = await raw(bob, 'support_get_ticket', { ticket_id: ticket.id })
+  const missing = await raw(bob, 'support_get_ticket', { ticket_id: 'tkt_nope' })
   assert.equal(theirs.isError, true)
   assert.equal(theirs.content[0].text.replace(ticket.id, 'X'), missing.content[0].text.replace('tkt_nope', 'X'))
-  const reply = await bob.callTool({ name: 'support_reply_to_ticket', arguments: { ticket_id: ticket.id, body: 'x' } })
+  const reply = await raw(bob, 'support_reply_to_ticket', { ticket_id: ticket.id, body: 'x' })
   assert.equal(reply.isError, true)
 })
 
 test('agents working for the same account keep their tickets apart with a session label', async () => {
   const alice = await connect('demo-token-alice')
-  const open = (session, title) =>
+  const open = (session: string | undefined, title: string) =>
     call(alice, 'support_open_ticket', { kind: 'bug', title, description: 'Text.', session })
   const one = await open('branch-a', 'From the first agent')
   const two = await open('branch-b', 'From the second agent')
@@ -291,16 +309,16 @@ test('agents working for the same account keep their tickets apart with a sessio
   assert.equal(none.ticket.session, undefined)
 
   const mine = await call(alice, 'support_list_tickets', { session: 'branch-a' })
-  assert.deepEqual(mine.tickets.map((ticket) => ticket.id), [one.ticket.id])
+  assert.deepEqual(mine.tickets.map((ticket: Loose) => ticket.id), [one.ticket.id])
 
   // Without the label the list is the whole account's, and the label never hides a ticket from its owner.
-  const everyone = (await call(alice, 'support_list_tickets', { status: 'all' })).tickets.map((ticket) => ticket.id)
+  const everyone = (await call(alice, 'support_list_tickets', { status: 'all' })).tickets.map((ticket: Loose) => ticket.id)
   for (const ticket of [one, two, none]) assert.ok(everyone.includes(ticket.ticket.id))
   await call(alice, 'support_get_ticket', { ticket_id: two.ticket.id })
 
   const headers = { authorization: 'Bearer demo-token-alice' }
   const overHttp = await (await fetch(`${baseUrl}/support/tickets?session=branch-b`, { headers })).json()
-  assert.deepEqual(overHttp.tickets.map((ticket) => ticket.id), [two.ticket.id])
+  assert.deepEqual(overHttp.tickets.map((ticket: Loose) => ticket.id), [two.ticket.id])
 })
 
 test('the same operations work over HTTP', async () => {
@@ -328,7 +346,7 @@ test('the same operations work over HTTP', async () => {
   })
   assert.equal(reply.status, 201)
   const list = await (await fetch(`${baseUrl}/support/tickets?status=closed`, { headers })).json()
-  assert.equal(list.tickets.find((t) => t.id === ticket.id).status, 'closed')
+  assert.equal(list.tickets.find((t: Loose) => t.id === ticket.id).status, 'closed')
   assert.equal((await fetch(`${baseUrl}/support/tickets?status=nope`, { headers })).status, 400)
 
   assert.equal((await fetch(`${baseUrl}/support/tickets`)).status, 401)
@@ -339,7 +357,7 @@ test('new tickets are limited per account per day, and the error says when to tr
   let now = new Date('2026-11-17T00:00:00Z')
   const store = new SupportStore({ now: () => now })
   const account = { id: 'acct_x' }
-  const input = { kind: 'other', title: 'Title', description: 'Text' }
+  const input: TicketInput = { kind: 'other', title: 'Title', description: 'Text' }
   for (let i = 0; i < NEW_TICKETS_PER_DAY; i++) store.openTicket(account, input)
 
   assert.throws(

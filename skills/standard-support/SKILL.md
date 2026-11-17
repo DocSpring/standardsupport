@@ -27,7 +27,7 @@ Read these before writing code:
 - [references/descriptions.md](references/descriptions.md): the exact tool descriptions, server instruction and
   error line. Copy them and change only the product's name.
 
-A working example in JavaScript is at
+A working example in TypeScript is at
 https://github.com/DocSpring/standardsupport/tree/main/examples/reference-server.
 
 ## 1. Find out what's there

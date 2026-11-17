@@ -5,13 +5,20 @@
   "description": "A small MCP server that implements Standard Support: four support_* tools, a watch URL and the same operations over HTTP",
   "license": "MIT",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test"
+    "start": "node server.ts",
+    "test": "node --test",
+    "typecheck": "tsc"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2"
   }
 }

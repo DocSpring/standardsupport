@@ -29,8 +29,21 @@ const ARTICLES = [
   },
 ]
 
-// Returns { answer, sources } or undefined when the documentation has nothing on the question.
-export async function answerFromDocs({ question, tool, error }) {
+export interface HelpQuestion {
+  question: string
+  tool?: string
+  error?: string
+}
+
+export interface HelpAnswer {
+  answer: string
+  sources?: { title: string; url: string }[]
+}
+
+// Answers a question from documentation, or returns undefined when the documentation has nothing on it.
+export type Help = (question: HelpQuestion) => Promise<HelpAnswer | undefined>
+
+export const answerFromDocs: Help = async ({ question, tool, error }) => {
   const asked = [question, tool, error].filter(Boolean).join(' ').toLowerCase()
   const matches = ARTICLES.map((article) => ({
     article,

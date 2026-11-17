@@ -5,8 +5,10 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-import { SupportStore } from './store.js'
-import { errorNudge, registerSupportTools, supportInstructions } from './tools.js'
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+
+import { SupportStore } from './store.ts'
+import { errorNudge, registerSupportTools, supportInstructions } from './tools.ts'
 
 test("the skill's descriptions.md has the same wording as the tools this server registers", async () => {
   const markdown = await readFile(
@@ -17,10 +19,16 @@ test("the skill's descriptions.md has the same wording as the tools this server 
   const quoted = [...markdown.matchAll(/(?:^> .*\n?)+/gm)].map((match) =>
     match[0].replace(/^> ?/gm, '').replace(/\s+/g, ' ').trim(),
   )
-  const asWritten = (text) => text.replace(/\s+/g, ' ').trim().replaceAll('Acme', '{product}')
+  const asWritten = (text: string) => text.replace(/\s+/g, ' ').trim().replaceAll('Acme', '{product}')
 
-  const registered = {}
-  registerSupportTools({ registerTool: (name, config) => (registered[name] = config) }, new SupportStore(), {
+  // Stands in for an MCP server and keeps what was registered on it.
+  const registered: Record<string, string> = {}
+  const recorder = {
+    registerTool: (name: string, config: { description?: string }) => {
+      registered[name] = config.description ?? ''
+    },
+  } as unknown as McpServer
+  registerSupportTools(recorder, new SupportStore(), {
     product: 'Acme',
     baseUrl: 'https://example.com',
     account: () => undefined,
@@ -31,7 +39,7 @@ test("the skill's descriptions.md has the same wording as the tools this server 
   const inCode = {
     'the server instructions': supportInstructions('Acme', { help: true }),
     'the error line': errorNudge('Acme', '{request_id}', { help: true }),
-    ...Object.fromEntries(Object.entries(registered).map(([name, config]) => [name, config.description])),
+    ...registered,
   }
   assert.equal(Object.keys(registered).length, 6)
   for (const [name, text] of Object.entries(inCode)) {

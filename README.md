@@ -33,7 +33,7 @@ DocSpring's implementation is being built.
 | ---------------------------- | ---------------------------------------------------------------- | ------- |
 | `spec/`                      | The design: tools, fields, the watch URL, safety rules, and why  | CC0     |
 | `skills/standard-support/`   | An agent skill that builds Standard Support into your MCP server | MIT     |
-| `examples/reference-server/` | A small working server in JavaScript, with tests                 | MIT     |
+| `examples/reference-server/` | A small working server in TypeScript, with tests                 | MIT     |
 | `site/`                      | The source of standardsupport.dev: one page, built from the spec | MIT     |
 | `ADOPTERS.md`                | Products that have shipped it; add yours by pull request         |         |
 
@@ -55,9 +55,10 @@ an issue here, or write to hello@standardsupport.dev.
 - **The spec** is `spec/README.md`. The skill carries a copy so that it works when installed by itself: after
   changing the spec, run `scripts/sync_skill_spec`.
 - **The wording agents see** (tool descriptions, the server instruction, the error line) lives in
-  `examples/reference-server/tools.js` and `skills/standard-support/references/descriptions.md`. Change both
+  `examples/reference-server/tools.ts` and `skills/standard-support/references/descriptions.md`. Change both
   together: a test fails when they differ.
-- **The reference server**: `cd examples/reference-server && npm install && npm test`.
+- **The reference server**: `cd examples/reference-server && npm install && npm test && npm run typecheck`. It
+  needs Node 24 (`mise.toml` pins it), which runs the TypeScript files directly.
 - **The site**: `cd site && npm install && npm run build` writes `site/dist/`, and `npm run serve` shows it at
   http://127.0.0.1:4321/. It renders `spec/README.md` and `ADOPTERS.md` into the page, so neither is copied by hand,
   and writes the whole page as Markdown too (`/index.md`). The Hacker News and X links in the Feedback section come

@@ -1,24 +1,28 @@
 # Reference server
 
-A small made-up product, "Acme Orders", with Standard Support added. About 1,000 lines of JavaScript with no
+A small made-up product, "Acme Orders", with Standard Support added. About 1,200 lines of TypeScript with no
 framework, meant to be read and copied from.
 
-| File              | What's in it                                                                              |
-| ----------------- | ----------------------------------------------------------------------------------------- |
-| `store.js`        | Tickets, messages and the rules: ownership, limits, idempotency, scrubbing, the watch data |
-| `tools.js`        | The `support_*` MCP tools, their descriptions and schemas                                 |
-| `help.js`         | A stand-in for answering a question from your documentation                               |
-| `server.js`       | `/mcp`, the same operations as REST endpoints, the watch URL, the team's endpoints        |
-| `watch.sh`        | The background watcher an agent runs to hear about a reply                                |
-| `support.test.js` | Tests that use the server as an agent, a watcher and the team would                       |
-| `wording.test.js` | Fails when the skill's wording and this server's tool descriptions drift apart            |
+| File              | What's in it                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| `store.ts`        | Feedback, tickets and the rules: ownership, limits, idempotency, scrubbing, the watch data |
+| `schemas.ts`      | What each operation takes, once, for the MCP tools and the HTTP endpoints alike            |
+| `tools.ts`        | The `support_*` MCP tools and the wording agents read                                      |
+| `help.ts`         | A stand-in for answering a question from your documentation                                |
+| `server.ts`       | `/mcp`, the same operations as HTTP endpoints, the watch URL, the team's endpoints         |
+| `watch.sh`        | The background watcher an agent runs to hear about a reply                                 |
+| `support.test.ts` | Tests that use the server as an agent, a watcher and the team would                        |
+| `wording.test.ts` | Fails when the skill's wording and this server's tool descriptions drift apart             |
 
 ## Run it
 
+It needs Node 24, which runs TypeScript files directly, so there is no build step.
+
 ```sh
 npm install
-npm start        # http://localhost:8787/mcp
+npm start           # http://localhost:8787/mcp
 npm test
+npm run typecheck
 ```
 
 Sign-in is a fixed table of demo tokens: `demo-token-alice` and `demo-token-bob` for customers, `demo-team-key` for
@@ -52,7 +56,7 @@ curl -s localhost:8787/team/tickets/tkt_.../replies \
 
 ## What it leaves out
 
-- **Real sign-in.** Replace `accountFromToken` in `server.js` with your own.
+- **Real sign-in.** Replace `accountFromToken` in `server.ts` with your own.
 - **A database.** `SupportStore` keeps Maps in memory.
 - **Email to the user** when the team replies. Send it from wherever `teamReply` is called.
 - **Long polling** on the watch URL. This server answers at once and says `"long_poll": false`. Only add it on a
