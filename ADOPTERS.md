@@ -3,11 +3,12 @@
 Products whose MCP server or API has the Standard Support tools, in alphabetical order. Entries are added by their
 makers and have not been checked for conformance.
 
-| Product | What it is | Level | Since | Proof |
-| ------- | ---------- | ----- | ----- | ----- |
+| Product                            | What it is                                                            | Level    | Since      | Proof                                                               |
+| ---------------------------------- | --------------------------------------------------------------------- | -------- | ---------- | ------------------------------------------------------------------- |
+| [DocSpring](https://docspring.com) | An API that fills PDFs, generates documents and collects e-signatures | 3 + help | 2026-11-18 | [Docs](https://docspring.com/docs/api-guide/support-for-ai-agents/) |
 
-Nobody yet. DocSpring's implementation is being built. We are publishing this early to see what other people think
-and collect feedback.
+DocSpring wrote Standard Support and is its first adopter. The spec is still a draft, published early to see what
+other people think and collect feedback.
 
 ## Adding yours
 

@@ -24,8 +24,8 @@ after the feedback tool.
 Nothing breaks if you implement this differently. Agents read each tool's description, so this doesn't need
 everyone to agree. You can adopt what works for your product and extend it however you like.
 
-**Status: draft 0.4, published early for feedback.** Names and fields may still change. Nobody has shipped it yet;
-DocSpring's implementation is being built. What changed between drafts is in the spec's
+**Status: draft 0.4, published early for feedback.** Names and fields may still change. DocSpring is the first
+adopter ([ADOPTERS.md](ADOPTERS.md)). What changed between drafts is in the spec's
 [Changes](spec/README.md#changes) section.
 
 ## What's here
