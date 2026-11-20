@@ -368,8 +368,8 @@ You are free to add fields and kinds at any level. Clients ignore what they don'
   on every turn: `support` (read-only) and `support_send` (a write), each with an `action`. Field descriptions
   move out of the schema into a `guide` action and into errors that say what to send, output schemas go, and
   `list_tickets` returns summaries. The definitions go from about 4,100 tokens to about 700, and there is now a
-  budget. The operations, their fields and the HTTP endpoints are unchanged. From measurements on Talira's MCP
-  server.
+  budget. The operations, their fields and the HTTP endpoints are unchanged. From measurements on
+  [Talira](https://talira.ai)'s MCP server.
 - **0.4, 17 November 2026.** `support_send_feedback` now takes `title`, so feedback and tickets have the same
   fields. On a ticket, `from_feedback` is now `from_feedback_id`.
 - **0.3, 17 November 2026.** Feedback and tickets are now separate. `support_send_feedback` is new: one-way, sent
