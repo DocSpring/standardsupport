@@ -350,7 +350,10 @@ export function registerSupportTools(server: McpServer, store: SupportStore, opt
 
 // A result that is prose, such as the guide: sent as text, so its line breaks arrive as line breaks.
 class PlainText {
-  constructor(readonly text: string) {}
+  readonly text: string
+  constructor(text: string) {
+    this.text = text
+  }
 }
 
 // Structured for clients that read structuredContent, and the same thing as text for those that don't. No output
