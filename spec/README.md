@@ -364,7 +364,7 @@ You are free to add fields and kinds at any level. Clients ignore what they don'
 
 ## Changes
 
-- **0.5, 21 November 2026.** Two tools where there were six, to cut what a server's tool list costs every agent
+- **0.5, 21 November 2026.** Replaces the six tools with two, to cut what a server's tool list costs every agent
   on every turn: `support` (read-only) and `support_send` (a write), each with an `action`. Field descriptions
   move out of the schema into a `guide` action and into errors that say what to send, output schemas go, and
   `list_tickets` returns summaries. The definitions go from about 4,100 tokens to about 700, and there is now a
