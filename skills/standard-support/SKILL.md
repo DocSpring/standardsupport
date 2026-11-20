@@ -169,8 +169,8 @@ These are where an implementation goes wrong in ways that hurt people.
 - [ ] The server advertises `dev.standardsupport/support` with its level.
 - [ ] The team was told about the new ticket where they work, and feedback went somewhere else.
 - [ ] The tools are exactly `support_send`, and `support` if the server has help or tickets.
-- [ ] The two definitions in `tools/list` come to no more than 3,500 characters of JSON, and a test fails above
-      that.
+- [ ] The two definitions in `tools/list` have a size budget (about 3,500 characters of JSON for the standard
+      actions, more if the product adds its own), and a test fails above it.
 - [ ] A call that is missing a required field gets an error that says what the action needs, and `support` with
       action `guide` returns every field.
 

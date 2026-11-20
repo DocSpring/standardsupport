@@ -4,8 +4,8 @@ Agents decide whether and how to use a tool from its description, so the wording
 and replace `{product}` with the product's name as users know it. A test in the reference server fails when this
 file and the server's code differ.
 
-A client sends every tool's definition to the model on every turn, so the wording is short on purpose. The two
-definitions together should stay under 3,500 characters of JSON (about 800 tokens). Before adding a sentence, ask
+A client sends every tool's definition to the model on every turn, so the wording is short on purpose. With the standard
+actions, the two definitions together come to about 3,500 characters of JSON (about 800 tokens). Before adding a sentence, ask
 whether it belongs in the guide, which an agent reads only when it needs to.
 
 There are three things an agent can do, and the wording keeps them apart:

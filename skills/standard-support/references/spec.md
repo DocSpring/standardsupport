@@ -61,9 +61,10 @@ came to about 4,100 tokens. These two come to about 700.
   right, and it never had to carry the manual. Your MCP library may refuse a call before your code sees it, when
   `action` is missing or a value is outside its list of choices, and that error will be the library's own. Yours
   covers everything the schema leaves optional.
-- **A budget.** At level 3 with help, the two definitions should come to no more than 3,500 characters of JSON,
-  about 800 tokens. Measure it: `JSON.stringify` the two entries of your `tools/list` result and count. The
-  reference server has a test that fails above its budget.
+- **A budget.** Decide how much these tools may add to your tool list, and have a test fail above it. As a guide,
+  the standard actions at level 3 with help fit in about 3,500 characters of JSON, about 800 tokens. Your own
+  actions, fields and lists of choices come on top of that: don't drop something an agent needs to fit a number.
+  To measure, `JSON.stringify` the two entries of your `tools/list` result and count.
 - **Results are small too.** Return compact JSON. `list_tickets` returns a summary of each ticket (`id`, `title`,
   `kind`, `status`, `resolution`, `unread_count`, `updated_at`, `session`), and the long text comes with
   `get_ticket`.
