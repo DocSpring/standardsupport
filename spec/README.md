@@ -52,12 +52,15 @@ came to about 4,100 tokens. These two come to about 700.
   more: when to use each action, the fields it must send, that feedback gets no reply, that a ticket needs the
   user's yes, and that no secrets or user's data go in.
 - **The rest comes when it's needed.** `support` with action `guide` returns every field and rule as text, for the
-  agent that is about to send something and wants the optional fields. A server that only takes feedback has
+  agent that is about to send something and wants the optional fields. Return it as plain text, not as a string
+  inside JSON, so its line breaks arrive as line breaks. A server that only takes feedback has
   nothing to read and offers only `support_send`.
 - **A wrong call is told what to send.** Check each call against the action's full shape on your server. When
   something is missing, say exactly what that action needs: "support_send with action feedback needs title (3 to
   200 characters), kind (bug, crash, ...) and description. Problem: kind is missing." The agent's next call is
-  right, and it never had to carry the manual.
+  right, and it never had to carry the manual. Your MCP library may refuse a call before your code sees it, when
+  `action` is missing or a value is outside its list of choices, and that error will be the library's own. Yours
+  covers everything the schema leaves optional.
 - **A budget.** At level 3 with help, the two definitions should come to no more than 3,500 characters of JSON,
   about 800 tokens. Measure it: `JSON.stringify` the two entries of your `tools/list` result and count. The
   reference server has a test that fails above its budget.
@@ -80,7 +83,8 @@ came to about 4,100 tokens. These two come to about 700.
 ## Schemas
 
 Each operation below is an `action` of one of the two tools, and an endpoint over HTTP. The fields and their limits
-are what your server checks, not what the tool's schema spells out. Results are structured (`structuredContent`,
+are what your server checks, not what the tool's schema spells out. The field names are the design. The limits
+are defaults: use your own where your product already has them, and state yours in the guide and in errors. Results are structured (`structuredContent`,
 with no `outputSchema`) and repeated as compact JSON text for clients that only read text. Timestamps are ISO 8601 with an offset. Readers ignore fields they don't know, so the schemas can grow.
 
 ### `help` (optional)

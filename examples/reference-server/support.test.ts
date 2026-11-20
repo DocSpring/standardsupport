@@ -190,7 +190,8 @@ test('a call that is missing something is told what to send, and the guide has e
   )
   assert.match((await raw(alice, 'support', { action: 'get_ticket' })).content[0].text, /needs ticket_id/)
 
-  const { guide } = await call(alice, 'support', { action: 'guide' })
+  const guide = (await raw(alice, 'support', { action: 'guide' })).content[0].text
+  assert.match(guide, /^Support for Acme Orders: every field and rule\.\n/)
   for (const field of ['impact', 'request_ids', 'suggestion', 'idempotency_key', 'after_message_id', 'still_broken']) {
     assert.match(guide, new RegExp(field))
   }

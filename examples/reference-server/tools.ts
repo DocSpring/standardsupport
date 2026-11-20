@@ -239,7 +239,8 @@ export function registerSupportTools(server: McpServer, store: SupportStore, opt
     <Input>(handler: (input: Input, extra: Extra) => object | Promise<object>) =>
     async (input: Input, extra: Extra): Promise<CallToolResult> => {
       try {
-        return success(await handler(input, extra))
+        const result = await handler(input, extra)
+        return result instanceof PlainText ? { content: [{ type: 'text', text: result.text }] } : success(result)
       } catch (error) {
         if (!(error instanceof SupportError)) throw error
         const retry = error.retry_after ? ` Try again after ${error.retry_after}.` : ''
@@ -286,7 +287,7 @@ export function registerSupportTools(server: McpServer, store: SupportStore, opt
             return { notice: REPLY_NOTICE, ticket: present(ticket), messages: messages.map(presentMessage) }
           }
           case 'guide':
-            return { guide: supportGuide(product, has) }
+            return new PlainText(supportGuide(product, has))
         }
       }),
     )
@@ -345,6 +346,11 @@ export function registerSupportTools(server: McpServer, store: SupportStore, opt
       }
     }),
   )
+}
+
+// A result that is prose, such as the guide: sent as text, so its line breaks arrive as line breaks.
+class PlainText {
+  constructor(readonly text: string) {}
 }
 
 // Structured for clients that read structuredContent, and the same thing as text for those that don't. No output

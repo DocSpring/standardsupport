@@ -143,6 +143,9 @@ Returned as `notifications.watch.how` when a ticket is opened:
 | `support`      | true           |                   |                  | false           |
 | `support_send` | false          | false             | false            | false           |
 
+Some directories refuse a tool that doesn't send every hint. If you list your server in one, add
+`destructiveHint: false` to `support` as well: it costs a few characters.
+
 `support_send` is a write, so a client that asks the user before a write asks here too. `support` is marked
 read-only although reading a ticket records `first_read_at`: that changes nothing the user would mind, and
 reading a reply shouldn't interrupt them.
