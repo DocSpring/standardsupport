@@ -6,6 +6,7 @@ makers and have not been checked for conformance.
 | Product                            | What it is                                                            | Level    | Since      | Proof                                                               |
 | ---------------------------------- | --------------------------------------------------------------------- | -------- | ---------- | ------------------------------------------------------------------- |
 | [DocSpring](https://docspring.com) | An API that fills PDFs, generates documents and collects e-signatures | 3 + help | 2026-11-18 | [Docs](https://docspring.com/docs/api-guide/support-for-ai-agents/) |
+| [Talira](https://talira.ai)        | A search engine for software, built for AI agents                     | 3 + help | 2026-11-21 | [Docs](https://talira.ai/docs/support)                              |
 
 DocSpring wrote Standard Support and is its first adopter:
 [how we built it](https://docspring.com/blog/posts/standard-support-ai-agent-tickets/). The spec is still a draft,
