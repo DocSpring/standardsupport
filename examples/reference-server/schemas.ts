@@ -1,9 +1,56 @@
-// What each operation takes, written once as zod shapes. The MCP tools use them as their input schemas (the
-// descriptions are what an agent reads), and the HTTP endpoints check request bodies against the same shapes.
+// What each operation takes, written once as zod shapes. The MCP tools and the HTTP endpoints check what they are
+// sent against the same shapes.
 
 import { z } from 'zod'
 
 import { IMPACTS, KINDS, LIST_STATUSES, RESOLUTIONS, STATUSES } from './store.ts'
+
+// What the two MCP tools show an agent: every field by name and type, the choices where there are any, and no
+// descriptions or limits. A client sends this to the model on every turn, so it stays small. The full shapes below
+// check each call, and a call that's missing something is told what to send.
+export type ReadAction = 'help' | 'list_tickets' | 'get_ticket' | 'guide'
+export type SendAction = 'feedback' | 'ticket' | 'reply'
+
+const text = z.string().optional()
+
+export function readInput(actions: ReadAction[]) {
+  const tickets = actions.includes('list_tickets')
+  return {
+    action: z.enum(actions as [ReadAction, ...ReadAction[]]),
+    ...(actions.includes('help') ? { question: text, tool: text, error: text } : {}),
+    ...(tickets
+      ? {
+          ticket_id: text,
+          after_message_id: text,
+          status: z.enum(LIST_STATUSES).optional(),
+          session: text,
+          updated_since: text,
+          limit: z.number().optional(),
+          cursor: text,
+        }
+      : {}),
+  }
+}
+
+export function sendInput(actions: SendAction[]) {
+  return {
+    action: z.enum(actions as [SendAction, ...SendAction[]]),
+    title: text,
+    kind: z.enum(KINDS).optional(),
+    description: text,
+    impact: z.enum(IMPACTS).optional(),
+    source: z.enum(['agent', 'user']).optional(),
+    task: text,
+    request_ids: z.array(z.string()).optional(),
+    tool: text,
+    error: text,
+    suggestion: text,
+    session: text,
+    agent: z.looseObject({}).optional(),
+    idempotency_key: text,
+    ...(actions.includes('reply') ? { ticket_id: text, body: text, outcome: z.enum(['resolved', 'still_broken']).optional() } : {}),
+  }
+}
 
 export const helpInput = {
   question: z.string().min(3).max(2000).describe('What you want to know, in a sentence or two.'),

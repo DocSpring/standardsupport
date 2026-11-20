@@ -11,20 +11,20 @@ that can't do what was asked, it works around the problem or gives up. Standard 
 decisions for fixing that: what to call the tools, which fields to ask for, how a reply reaches an agent that
 usually has no inbox, who owns a ticket, and how to keep injected text from steering either side.
 
-An agent can do three things, each with its own tool and rules:
+An agent can do three things, each with its own rules:
 
-- **Ask for help** (`support_get_help`, optional): a question answered from your documentation. No ticket.
-- **Send feedback** (`support_send_feedback`): something got in the way and the work carried on. Nobody replies.
-- **Open a ticket** (`support_open_ticket`, with `support_list_tickets`, `support_get_ticket` and
-  `support_reply_to_ticket`): the user is blocked or needs an answer, and a person on your team replies.
+- **Ask for help** (optional): a question answered from your documentation. No ticket.
+- **Send feedback**: something got in the way and the work carried on. Nobody replies.
+- **Open a ticket**, then list tickets, read one and reply: the user is blocked or needs an answer, and a person on your team replies.
 
-The same operations work over HTTP, and each ticket has a status URL that a background script can poll. You can stop
+An MCP server offers all of it through two small tools, `support` (reads) and `support_send` (sends), which add
+about 700 tokens to its tool list. The same operations work over HTTP, and each ticket has a status URL that a background script can poll. You can stop
 after the feedback tool.
 
 Nothing breaks if you implement this differently. Agents read each tool's description, so this doesn't need
 everyone to agree. You can adopt what works for your product and extend it however you like.
 
-**Status: draft 0.4, published early for feedback.** Names and fields may still change. DocSpring is the first
+**Status: draft 0.5, published early for feedback.** Names and fields may still change. DocSpring is the first
 adopter ([ADOPTERS.md](ADOPTERS.md)). What changed between drafts is in the spec's
 [Changes](spec/README.md#changes) section.
 

@@ -1,9 +1,9 @@
 # Standard Support
 
-> A convention for how AI agents ask for support (draft 0.4). Three things an agent can do: ask for help
-> (support_get_help, answered from the product's documentation), send feedback (support_send_feedback, one-way), and
-> open a ticket with the product's team (support_open_ticket, support_list_tickets, support_get_ticket,
-> support_reply_to_ticket), with a watch URL per ticket so a later session can pick up the reply. A design to copy,
+> A convention for how AI agents ask for support (draft 0.5). Three things an agent can do: ask for help
+> (answered from the product's documentation), send feedback (one-way), and open a ticket with the product's team,
+> through two small MCP tools (support reads, support_send sends) or the same HTTP endpoints, with a watch URL per
+> ticket so a later session can pick up the reply. A design to copy,
 > not a protocol to conform to. Made by DocSpring.
 
 - [The whole site as Markdown](https://standardsupport.dev/index.md): the example, why, the spec, questions and adopters

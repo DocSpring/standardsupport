@@ -2,7 +2,7 @@
   "name": "standard-support-reference-server",
   "version": "0.1.0",
   "private": true,
-  "description": "A small MCP server that implements Standard Support: four support_* tools, a watch URL and the same operations over HTTP",
+  "description": "A small MCP server that implements Standard Support: two support tools, a watch URL and the same operations over HTTP",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -11,6 +11,7 @@
   "scripts": {
     "start": "node server.ts",
     "test": "node --test",
+    "measure": "node measure.ts",
     "typecheck": "tsc"
   },
   "dependencies": {

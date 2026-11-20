@@ -7,11 +7,12 @@ framework, meant to be read and copied from.
 | ----------------- | ------------------------------------------------------------------------------------------ |
 | `store.ts`        | Feedback, tickets and the rules: ownership, limits, idempotency, scrubbing, the watch data |
 | `schemas.ts`      | What each operation takes, once, for the MCP tools and the HTTP endpoints alike            |
-| `tools.ts`        | The `support_*` MCP tools and the wording agents read                                      |
+| `tools.ts`        | The two MCP tools (`support`, `support_send`) and the wording agents read                  |
 | `help.ts`         | A stand-in for answering a question from your documentation                                |
 | `server.ts`       | `/mcp`, the same operations as HTTP endpoints, the watch URL, the team's endpoints         |
 | `watch.sh`        | The background watcher an agent runs to hear about a reply                                 |
 | `support.test.ts` | Tests that use the server as an agent, a watcher and the team would                        |
+| `measure.ts`      | Prints the size of each support tool's definition: `npm run measure`                       |
 | `wording.test.ts` | Fails when the skill's wording and this server's tool descriptions drift apart             |
 
 ## Run it
@@ -31,7 +32,7 @@ the team. Everything is kept in memory.
 ## Try it
 
 Connect an MCP client to `http://localhost:8787/mcp` with the header `Authorization: Bearer demo-token-alice`, and
-ask the agent to look up order 999. The lookup fails with a request ID and a line pointing at `support_get_help`,
+ask the agent to look up order 999. The lookup fails with a request ID and a line pointing at `support` with action `help`,
 whose answer says that order numbers start at 1000, so this one isn't a bug. Ask for order 1002 and it fails the
 same way, the documentation says that's a problem on Acme's side, and the agent offers to open a ticket.
 

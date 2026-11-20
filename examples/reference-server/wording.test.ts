@@ -8,7 +8,7 @@ import { test } from 'node:test'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 import { SupportStore } from './store.ts'
-import { errorNudge, registerSupportTools, supportInstructions } from './tools.ts'
+import { errorNudge, registerSupportTools, supportGuide, supportInstructions } from './tools.ts'
 
 test("the skill's descriptions.md has the same wording as the tools this server registers", async () => {
   const markdown = await readFile(
@@ -41,8 +41,12 @@ test("the skill's descriptions.md has the same wording as the tools this server 
     'the error line': errorNudge('Acme', '{request_id}', { help: true }),
     ...registered,
   }
-  assert.equal(Object.keys(registered).length, 6)
+  assert.deepEqual(Object.keys(registered), ['support', 'support_send'])
   for (const [name, text] of Object.entries(inCode)) {
     assert.ok(quoted.includes(asWritten(text)), `descriptions.md is out of date for ${name}: ${asWritten(text)}`)
   }
+
+  // The guide is quoted whole, in a code block.
+  const guide = supportGuide('Acme', { help: true, tickets: true }).replaceAll('Acme', '{product}')
+  assert.ok(markdown.includes('```text\n' + guide + '\n```'), 'descriptions.md is out of date for the guide')
 })

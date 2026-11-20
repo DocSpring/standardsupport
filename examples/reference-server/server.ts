@@ -1,5 +1,5 @@
 // A small product with Standard Support added: an MCP server at /mcp with one tool of its own (lookup_order) and the
-// support_* tools, the same support operations as HTTP endpoints, the watch URL, and endpoints for the team.
+// two support tools, the same support operations as HTTP endpoints, the watch URL, and endpoints for the team.
 //
 //   node server.ts
 //
